@@ -159,7 +159,7 @@ class QDateTime (Protocol_Element) :
         s = ( 'QDatTime(date=%(date)s time=%(time)s '
             + 'timespec=%(timespec)s offset=%(offset)s)'
             )
-        return s % self.__dict
+        return s % self.__dict__
     # end def __str__
     __repr__ = __str__
 
@@ -185,12 +185,21 @@ class QColor (Protocol_Element) :
 
     @classmethod
     def deserialize (cls, bytes, length = 0) :
-        spec, alpha, red, green, blue, dummy = unpack (self.fmt, bytes)
+        b = bytes [:cls.serialization_size]
+        spec, alpha, red, green, blue, dummy = unpack (cls.fmt, b)
         return cls (spec, alpha, red, green, blue)
     # end def deserialize
 
     def serialize (self) :
-        return pack (self.fmt, self.alpha, self.red, self.green, self.blue)
+        return pack \
+            ( self.fmt
+            , self.spec
+            , self.alpha
+            , self.red
+            , self.green
+            , self.blue
+            , 0
+            )
     # end def serialize
 
     @property
@@ -201,10 +210,10 @@ class QColor (Protocol_Element) :
     def __str__ (self) :
         if self.spec != self.spec_rgb :
             return 'QColor(Invalid)'
-        s = ( 'QColor(alpha=%(alpha)s red=%(red)s '
-            + 'green=%(green)s blue=%(blue)s)'
+        s = ( 'QColor(alpha=%(alpha)s, red=%(red)s, '
+            + 'green=%(green)s, blue=%(blue)s)'
             )
-        return s % self.__dict
+        return s % self.__dict__
     # end def __str__
     __repr__ = __str__
 
@@ -221,7 +230,7 @@ qdouble    = ('!d', 8)
 opt_quint8 = (Optional_Quint, 1)
 qtime      = quint32
 qdatetime  = (QDateTime, 0)
-qcolor     = None
+qcolor     = (QColor, 0)
 
 statusmsg = b'\xad\xbc\xcb\xda\x00\x00\x00\x02\x00\x00\x00\x01\x00\x00\x00\x14WSJT-X - TS590S-klbg\x00\x00\x00\x00\x00k\xf0\xd0\x00\x00\x00\x03FT8\x00\x00\x00\x06XAMPLE\x00\x00\x00\x02-2\x00\x00\x00\x03FT8\x00\x00\x01\x00\x00\x02\xcb\x00\x00\x04n\x00\x00\x00\x06OE3RSU\x00\x00\x00\x06JN88DG\x00\x00\x00\x04JO21\x00\xff\xff\xff\xff\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x0bTS590S-klbg\x00\x00\x00%XAMPLE OE3RSU 73                     '
 
@@ -251,7 +260,11 @@ class WSJTX_Telegram (autosuper) :
     # Individual telegrams register here:
     type_registry = {}
 
-    def __init__ (self, magic, version_number, type, id, **kw) :
+    def __init__ (self, version_number, id, type = None, magic = None, **kw) :
+        if magic is None :
+            magic = self.magic
+        if type is None :
+            type = self.type
         assert magic == self.magic
         assert self.schema_version_number >= version_number
         self.version_number = version_number
@@ -294,6 +307,25 @@ class WSJTX_Telegram (autosuper) :
                 kw [name] = value.value
         return kw
     # end def deserialize
+
+    def as_bytes (self) :
+        r = []
+        fmt = []
+        # Get all the format attributes of base classes
+        for cls in reversed (self.__class__.mro ()) :
+            f = getattr (cls, 'format', None)
+            if f :
+                fmt.extend (f)
+        for name, (format, length) in fmt :
+            v = getattr (self, name)
+            if isinstance (v, Protocol_Element) :
+                r.append (v.serialize ())
+            elif isinstance (format, type ('')) :
+                r.append (pack (format, v))
+            else :
+                r.append (format (v).serialize ())
+        return b''.join (r)
+    # end def as_bytes
 
     def __str__ (self) :
         r = [self.__class__.__name__.split ('_', 1) [-1]]
@@ -500,6 +532,21 @@ class WSJTX_Logged_ADIF (WSJTX_Telegram) :
 WSJTX_Telegram.type_registry [WSJTX_Logged_ADIF.type] = WSJTX_Logged_ADIF
 
 class WSJTX_Highlight_Call (WSJTX_Telegram) :
+    """ Highlight a callsign in WSJTX
+    >>> red   = QColor (QColor.spec_rgb, 0xFFFF, 0xFFFF, 0, 0)
+    >>> white = QColor (QColor.spec_rgb, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF)
+    >>> kw = dict (id = 'test', version_number = 2)
+    >>> whc = WSJTX_Highlight_Call \\
+    ...     ( callsign = 'OE3RSU'
+    ...     , bg_color = white
+    ...     , fg_color = red
+    ...     , highlight_last = 1
+    ...     , **kw
+    ...     )
+    >>> b = whc.as_bytes ()
+    >>> WSJTX_Telegram.from_bytes (b)
+    Highlight_Call callsign=OE3RSU bg_color=QColor(alpha=65535, red=65535, green=65535, blue=65535) fg_color=QColor(alpha=65535, red=65535, green=0, blue=0) highlight_last=1
+    """
 
     type   = 13
     format = \
@@ -510,7 +557,7 @@ class WSJTX_Highlight_Call (WSJTX_Telegram) :
         )
 
 # end class WSJTX_Highlight_Call
-#WSJTX_Telegram.type_registry [WSJTX_Highlight_Call.type] = WSJTX_Highlight_Call
+WSJTX_Telegram.type_registry [WSJTX_Highlight_Call.type] = WSJTX_Highlight_Call
 
 class WSJTX_Switch_Config (WSJTX_Telegram) :
 
