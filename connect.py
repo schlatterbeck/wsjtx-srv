@@ -173,14 +173,16 @@ class QColor (Protocol_Element) :
     fmt          = '!BHHHHH'
     spec_rgb     = 1
     spec_invalid = 0
+    cmax         = 0xFFFF
     serialization_size = 11
 
-    def __init__ (self, spec, alpha, red, green, blue) :
+    def __init__ \
+        (self, red = 0, green = 0, blue = 0, alpha = cmax, spec = spec_rgb) :
         self.spec     = spec
-        self.alpha    = alpha
         self.red      = red
         self.green    = green
         self.blue     = blue
+        self.alpha    = alpha
     # end def __init__
 
     @classmethod
@@ -218,6 +220,11 @@ class QColor (Protocol_Element) :
     __repr__ = __str__
 
 # end class QColor
+color_red   = QColor (red = QColor.cmax)
+color_green = QColor (green = QColor.cmax)
+color_blue  = QColor (blue = QColor.cmax)
+color_white = QColor (QColor.cmax, QColor.cmax, QColor.cmax)
+color_black = QColor ()
 
 # Shortcuts for used data types, also for consistency
 quint8     = ('!B', 1)
@@ -233,6 +240,7 @@ qdatetime  = (QDateTime, 0)
 qcolor     = (QColor, 0)
 
 statusmsg = b'\xad\xbc\xcb\xda\x00\x00\x00\x02\x00\x00\x00\x01\x00\x00\x00\x14WSJT-X - TS590S-klbg\x00\x00\x00\x00\x00k\xf0\xd0\x00\x00\x00\x03FT8\x00\x00\x00\x06XAMPLE\x00\x00\x00\x02-2\x00\x00\x00\x03FT8\x00\x00\x01\x00\x00\x02\xcb\x00\x00\x04n\x00\x00\x00\x06OE3RSU\x00\x00\x00\x06JN88DG\x00\x00\x00\x04JO21\x00\xff\xff\xff\xff\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x0bTS590S-klbg\x00\x00\x00%XAMPLE OE3RSU 73                     '
+clearmsg = b'\xad\xbc\xcb\xda\x00\x00\x00\x03\x00\x00\x00\x03\x00\x00\x00\x14WSJT-X - TS590S-klbg'
 
 class WSJTX_Telegram (autosuper) :
     """ Base class of WSJTX Telegram
@@ -245,6 +253,8 @@ class WSJTX_Telegram (autosuper) :
         size.
     >>> WSJTX_Telegram.from_bytes (statusmsg)
     Status dial_frq=7074000 mode=FT8 dx_call=XAMPLE report=-2 tx_mode=FT8 tx_enabled=0 xmitting=0 decoding=1 rx_df=715 tx_df=1134 de_call=OE3RSU de_grid=JN88DG dx_grid=JO21 tx_watchdog=0 sub_mode=None fast_mode=0 special_op=0 frq_tolerance=4294967295 t_r_period=4294967295 config_name=TS590S-klbg tx_message=XAMPLE OE3RSU 73
+    >>> WSJTX_Telegram.from_bytes (clearmsg)
+    Clear window=None
     """
 
     schema_version_number = 3
@@ -407,6 +417,7 @@ class WSJTX_Clear (WSJTX_Telegram) :
     type   = 3
     format = \
         ( ('window',         opt_quint8)
+        ,
         )
 
 # end class WSJTX_Clear
@@ -476,6 +487,7 @@ class WSJTX_Halt_TX (WSJTX_Telegram) :
     type   = 8
     format = \
         ( ('auto_tx_only',   qbool)
+        ,
         )
 
 # end class WSJTX_Halt_TX
@@ -516,6 +528,7 @@ class WSJTX_Location (WSJTX_Telegram) :
     type   = 11
     format = \
         ( ('location',   qutf8)
+        ,
         )
 
 # end class WSJTX_Location
@@ -526,6 +539,7 @@ class WSJTX_Logged_ADIF (WSJTX_Telegram) :
     type   = 12
     format = \
         ( ('adif_txt',   qutf8)
+        ,
         )
 
 # end class WSJTX_Logged_ADIF
@@ -533,13 +547,11 @@ WSJTX_Telegram.type_registry [WSJTX_Logged_ADIF.type] = WSJTX_Logged_ADIF
 
 class WSJTX_Highlight_Call (WSJTX_Telegram) :
     """ Highlight a callsign in WSJTX
-    >>> red   = QColor (QColor.spec_rgb, 0xFFFF, 0xFFFF, 0, 0)
-    >>> white = QColor (QColor.spec_rgb, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF)
     >>> kw = dict (id = 'test', version_number = 2)
     >>> whc = WSJTX_Highlight_Call \\
     ...     ( callsign = 'OE3RSU'
-    ...     , bg_color = white
-    ...     , fg_color = red
+    ...     , bg_color = color_white
+    ...     , fg_color = color_red
     ...     , highlight_last = 1
     ...     , **kw
     ...     )
@@ -564,6 +576,7 @@ class WSJTX_Switch_Config (WSJTX_Telegram) :
     type   = 14
     format = \
         ( ('adif_txt',   qutf8)
+        ,
         )
 
 # end class WSJTX_Switch_Config
@@ -589,30 +602,69 @@ WSJTX_Telegram.type_registry [WSJTX_Configure.type] = WSJTX_Configure
 
 class UDP_Connector :
 
-    def __init__ (self, ip = '127.0.0.1', port = 2237) :
+    def __init__ (self, ip = '127.0.0.1', port = 2237, id = 'wsjt-server') :
         self.socket = socket (AF_INET, SOCK_DGRAM)
         self.ip   = ip
         self.port = port
         self.socket.bind ((self.ip, self.port))
-        self.peer = None
+        self.peer = {}
+        self.adr  = None
+        self.id   = id
     # end def __init__
+
+    def color (self, callsign, fg_color = color_red, bg_color = color_white) :
+        kw = dict (id = self.id, version_number = 3)
+        tel = WSJTX_Highlight_Call \
+            ( callsign = callsign
+            , bg_color = bg_color
+            , fg_color = fg_color
+            , highlight_last = 1
+            , **kw
+            )
+        self.socket.sendto (tel.as_bytes (), self.adr)
+    # end def color
+
+    def heartbeat (self) :
+        kw = dict (id = self.id, version_number = 3)
+        tel = WSJTX_Heartbeat \
+            ( max_schema = 3
+            , version    = '4711'
+            , revision   = ''
+            , **kw
+            )
+        self.socket.sendto (tel.as_bytes (), self.adr)
+    # end def heartbeat
 
     def receive (self) :
         bytes, address = self.socket.recvfrom (4096)
-        if self.peer is None :
-            self.peer = address
-        else :
-            assert self.peer == address
         tel = WSJTX_Telegram.from_bytes (bytes)
+        if tel.id not in self.peer :
+            self.peer [tel.id] = address
+        if not self.adr :
+            self.adr = address
         return tel
     # end def receive
+
+    def set_peer (self, peername) :
+        if peername in self.peer :
+            self.adr = self.peer [peername]
+    # end def set_peer
 
 # end class UDP_Connector
 
 def main () :
     uc = UDP_Connector ()
+    n  = 0
     while 1 :
-        print (uc.receive ())
+        tel = uc.receive ()
+        n -= 1
+        if n < 0 :
+            n = 20
+            uc.heartbeat ()
+        if not isinstance (tel, (WSJTX_Decode, WSJTX_Status)):
+            print (tel)
+        if isinstance (tel, WSJTX_Status) :
+            uc.color (sys.argv [1])
 # end def main
 
 if __name__ == '__main__' :
