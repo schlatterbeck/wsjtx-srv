@@ -266,27 +266,26 @@ class WSJTX_Telegram (autosuper) :
         , ('type',           quint32)
         , ('id',             qutf8)
         )
+    defaults = dict (magic = magic, type = type)
 
     # Individual telegrams register here:
     type_registry = {}
 
-    def __init__ (self, version_number, id, type = None, magic = None, **kw) :
-        if magic is None :
-            magic = self.magic
-        if type is None :
-            type = self.type
-        assert magic == self.magic
+    def __init__ (self, version_number, id, **kw) :
+        params = {}
+        params.update (self.defaults)
+        params.update (kw)
+        assert params ['magic'] == self.magic
         assert self.schema_version_number >= version_number
         self.version_number = version_number
-        self.type           = type
         self.id             = id
-        if self.__class__.type is not None :
-            assert self.__class__.type == self.type
         # Thats for sub-classes, they have their own format
         for name, (a, b) in self.format :
-            if name in ('version_number', 'type', 'id', 'magic') :
+            if name in ('version_number', 'id') :
                 continue
-            setattr (self, name, kw [name])
+            setattr (self, name, params [name])
+        if self.__class__.type is not None :
+            assert self.__class__.type == self.type
         self.__super.__init__ (** kw)
     # end def __init__
 
@@ -419,6 +418,8 @@ class WSJTX_Clear (WSJTX_Telegram) :
         ( ('window',         opt_quint8)
         ,
         )
+    defaults = dict (WSJTX_Telegram.defaults)
+    defaults.update (window = None)
 
 # end class WSJTX_Clear
 WSJTX_Telegram.type_registry [WSJTX_Clear.type] = WSJTX_Clear
@@ -500,6 +501,8 @@ class WSJTX_Free_Text (WSJTX_Telegram) :
         ( ('text',   qutf8)
         , ('send',   qbool)
         )
+    defaults = dict (WSJTX_Telegram.defaults)
+    defaults.update (send = False)
 
 # end class WSJTX_Free_Text
 WSJTX_Telegram.type_registry [WSJTX_Free_Text.type] = WSJTX_Free_Text
@@ -567,6 +570,8 @@ class WSJTX_Highlight_Call (WSJTX_Telegram) :
         , ('fg_color',       qcolor)
         , ('highlight_last', qbool)
         )
+    defaults = dict (WSJTX_Telegram.defaults)
+    defaults.update (highlight_last = False)
 
 # end class WSJTX_Highlight_Call
 WSJTX_Telegram.type_registry [WSJTX_Highlight_Call.type] = WSJTX_Highlight_Call
@@ -618,7 +623,6 @@ class UDP_Connector :
             ( callsign = callsign
             , bg_color = bg_color
             , fg_color = fg_color
-            , highlight_last = 1
             , **kw
             )
         self.socket.sendto (tel.as_bytes (), self.adr)
