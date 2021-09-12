@@ -650,5 +650,15 @@ def main () :
                     highlight [h] = True
 # end def main
 
+__all__ = [ "main", "QDateTime", "QColor", "color_red", "color_green"
+          , "color_blue", "color_white", "color_black"
+          , "WSJTX_Heartbeat", "WSJTX_Status", "WSJTX_Decode"
+          , "WSJTX_Clear", "WSJTX_Reply", "WSJTX_QSO_Logged"
+          , "WSJTX_Close", "WSJTX_Replay", "WSJTX_Halt_TX"
+          , "WSJTX_Free_Text", "WSJTX_WSPR_Decode", "WSJTX_Location"
+          , "WSJTX_Logged_ADIF", "WSJTX_Highlight_Call"
+          , "WSJTX_Switch_Config", "WSJTX_Configure", "UDP_Connector"
+          ]
+
 if __name__ == '__main__' :
     main ()
