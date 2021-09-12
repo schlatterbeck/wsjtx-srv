@@ -188,8 +188,8 @@ class QColor (Protocol_Element) :
     @classmethod
     def deserialize (cls, bytes, length = 0) :
         b = bytes [:cls.serialization_size]
-        spec, alpha, red, green, blue, dummy = unpack (cls.fmt, b)
-        return cls (spec, alpha, red, green, blue)
+        s, a, r, g, b, dummy = unpack (cls.fmt, b)
+        return cls (spec = s, alpha = a, red = r, green = g, blue = b)
     # end def deserialize
 
     def serialize (self) :
@@ -261,32 +261,31 @@ class WSJTX_Telegram (autosuper) :
     magic  = 0xadbccbda
     type   = None
     format = \
-        ( ('magic',          quint32)
+        [ ('magic',          quint32)
         , ('version_number', quint32)
         , ('type',           quint32)
         , ('id',             qutf8)
-        )
-    defaults = dict (magic = magic, type = type)
+        ]
+    defaults = dict (magic = magic, version_number = 3, id = 'wsjt-server')
+    suppress = dict.fromkeys (('magic', 'version_number', 'id', 'type'))
 
     # Individual telegrams register here:
     type_registry = {}
 
-    def __init__ (self, version_number, id, **kw) :
+    def __init__ (self, **kw) :
         params = {}
         params.update (self.defaults)
         params.update (kw)
+        if 'type' not in params :
+            params ['type'] = self.type
         assert params ['magic'] == self.magic
-        assert self.schema_version_number >= version_number
-        self.version_number = version_number
-        self.id             = id
+        assert self.schema_version_number >= params ['version_number']
         # Thats for sub-classes, they have their own format
         for name, (a, b) in self.format :
-            if name in ('version_number', 'id') :
-                continue
             setattr (self, name, params [name])
         if self.__class__.type is not None :
             assert self.__class__.type == self.type
-        self.__super.__init__ (** kw)
+        self.__super.__init__ (** params)
     # end def __init__
 
     @classmethod
@@ -296,7 +295,7 @@ class WSJTX_Telegram (autosuper) :
         self = cls (** kw)
         if type in cls.type_registry :
             c = cls.type_registry [type]
-            kw.update (c.deserialize (bytes [self.serialization_size:]))
+            kw.update (c.deserialize (bytes))
             return c (** kw)
         else :
             return self
@@ -319,27 +318,22 @@ class WSJTX_Telegram (autosuper) :
 
     def as_bytes (self) :
         r = []
-        fmt = []
-        # Get all the format attributes of base classes
-        for cls in reversed (self.__class__.mro ()) :
-            f = getattr (cls, 'format', None)
-            if f :
-                fmt.extend (f)
-        for name, (format, length) in fmt :
+        for name, (fmt, length) in self.format :
             v = getattr (self, name)
             if isinstance (v, Protocol_Element) :
                 r.append (v.serialize ())
-            elif isinstance (format, type ('')) :
-                r.append (pack (format, v))
+            elif isinstance (fmt, type ('')) :
+                r.append (pack (fmt, v))
             else :
-                r.append (format (v).serialize ())
+                r.append (fmt (v).serialize ())
         return b''.join (r)
     # end def as_bytes
 
     def __str__ (self) :
         r = [self.__class__.__name__.split ('_', 1) [-1]]
         for n, (fmt, length) in self.format :
-            r.append ('%s=%s' % (n, getattr (self, n)))
+            if n not in self.suppress :
+                r.append ('%s=%s' % (n, getattr (self, n)))
         return ' '.join (r)
     # end def __str__
     __repr__ = __str__
@@ -355,10 +349,16 @@ class WSJTX_Heartbeat (WSJTX_Telegram) :
 
     type   = 0
 
-    format = \
-        ( ('max_schema',     quint32)
+    format = WSJTX_Telegram.format + \
+        [ ('max_schema',     quint32)
         , ('version',        qutf8)
         , ('revision',       qutf8)
+        ]
+    defaults = dict \
+        ( max_schema = 3
+        , version    = ''
+        , revision   = ''
+        , ** WSJTX_Telegram.defaults
         )
 # end class WSJTX_Heartbeat
 WSJTX_Telegram.type_registry [WSJTX_Heartbeat.type] = WSJTX_Heartbeat
@@ -366,8 +366,8 @@ WSJTX_Telegram.type_registry [WSJTX_Heartbeat.type] = WSJTX_Heartbeat
 class WSJTX_Status (WSJTX_Telegram) :
 
     type   = 1
-    format = \
-        ( ('dial_frq',       quint64)
+    format = WSJTX_Telegram.format + \
+        [ ('dial_frq',       quint64)
         , ('mode',           qutf8)
         , ('dx_call',        qutf8)
         , ('report',         qutf8)
@@ -388,7 +388,7 @@ class WSJTX_Status (WSJTX_Telegram) :
         , ('t_r_period',     quint32)
         , ('config_name',    qutf8)
         , ('tx_message',     qutf8)
-        )
+        ]
 
 # end class WSJTX_Status
 WSJTX_Telegram.type_registry [WSJTX_Status.type] = WSJTX_Status
@@ -396,8 +396,8 @@ WSJTX_Telegram.type_registry [WSJTX_Status.type] = WSJTX_Status
 class WSJTX_Decode (WSJTX_Telegram) :
 
     type   = 2
-    format = \
-        ( ('is_new',         qbool)
+    format = WSJTX_Telegram.format + \
+        [ ('is_new',         qbool)
         , ('time',           qtime)
         , ('snr',            qint32)
         , ('delta_t',        qdouble)
@@ -406,20 +406,16 @@ class WSJTX_Decode (WSJTX_Telegram) :
         , ('message',        qutf8)
         , ('low_confidence', qbool)
         , ('off_air',        qbool)
-        )
+        ]
 
 # end class WSJTX_Decode
 WSJTX_Telegram.type_registry [WSJTX_Decode.type] = WSJTX_Decode
 
 class WSJTX_Clear (WSJTX_Telegram) :
 
-    type   = 3
-    format = \
-        ( ('window',         opt_quint8)
-        ,
-        )
-    defaults = dict (WSJTX_Telegram.defaults)
-    defaults.update (window = None)
+    type     = 3
+    format   = WSJTX_Telegram.format + [('window', opt_quint8)]
+    defaults = dict (window = None, **WSJTX_Telegram.defaults)
 
 # end class WSJTX_Clear
 WSJTX_Telegram.type_registry [WSJTX_Clear.type] = WSJTX_Clear
@@ -427,8 +423,8 @@ WSJTX_Telegram.type_registry [WSJTX_Clear.type] = WSJTX_Clear
 class WSJTX_Reply (WSJTX_Telegram) :
 
     type   = 4
-    format = \
-        ( ('time',           qtime)
+    format = WSJTX_Telegram.format + \
+        [ ('time',           qtime)
         , ('snr',            qint32)
         , ('delta_t',        qdouble)
         , ('delta_f',        quint32)
@@ -436,7 +432,7 @@ class WSJTX_Reply (WSJTX_Telegram) :
         , ('message',        qutf8)
         , ('low_confidence', qbool)
         , ('modifiers',      quint8)
-        )
+        ]
 
 # end class WSJTX_Reply
 WSJTX_Telegram.type_registry [WSJTX_Reply.type] = WSJTX_Reply
@@ -444,8 +440,8 @@ WSJTX_Telegram.type_registry [WSJTX_Reply.type] = WSJTX_Reply
 class WSJTX_QSO_Logged (WSJTX_Telegram) :
 
     type   = 5
-    format = \
-        ( ('time_off',       qdatetime)
+    format = WSJTX_Telegram.format + \
+        [ ('time_off',       qdatetime)
         , ('dx_call',        qutf8)
         , ('dx_grid',        qutf8)
         , ('tx_frq',         quint64)
@@ -462,7 +458,7 @@ class WSJTX_QSO_Logged (WSJTX_Telegram) :
         , ('exchange_sent',  qutf8)
         , ('exchange_recv',  qutf8)
         , ('adif_propmode',  qutf8)
-        )
+        ]
 
 # end class WSJTX_QSO_Logged
 WSJTX_Telegram.type_registry [WSJTX_QSO_Logged.type] = WSJTX_QSO_Logged
@@ -470,7 +466,6 @@ WSJTX_Telegram.type_registry [WSJTX_QSO_Logged.type] = WSJTX_QSO_Logged
 class WSJTX_Close (WSJTX_Telegram) :
 
     type   = 6
-    format = ()
 
 # end class WSJTX_Close
 WSJTX_Telegram.type_registry [WSJTX_Close.type] = WSJTX_Close
@@ -478,7 +473,6 @@ WSJTX_Telegram.type_registry [WSJTX_Close.type] = WSJTX_Close
 class WSJTX_Replay (WSJTX_Telegram) :
 
     type   = 7
-    format = ()
 
 # end class WSJTX_Replay
 WSJTX_Telegram.type_registry [WSJTX_Replay.type] = WSJTX_Replay
@@ -486,10 +480,7 @@ WSJTX_Telegram.type_registry [WSJTX_Replay.type] = WSJTX_Replay
 class WSJTX_Halt_TX (WSJTX_Telegram) :
 
     type   = 8
-    format = \
-        ( ('auto_tx_only',   qbool)
-        ,
-        )
+    format = WSJTX_Telegram.format + [('auto_tx_only', qbool)]
 
 # end class WSJTX_Halt_TX
 WSJTX_Telegram.type_registry [WSJTX_Halt_TX.type] = WSJTX_Halt_TX
@@ -497,12 +488,11 @@ WSJTX_Telegram.type_registry [WSJTX_Halt_TX.type] = WSJTX_Halt_TX
 class WSJTX_Free_Text (WSJTX_Telegram) :
 
     type   = 9
-    format = \
-        ( ('text',   qutf8)
+    format = WSJTX_Telegram.format + \
+        [ ('text',   qutf8)
         , ('send',   qbool)
-        )
-    defaults = dict (WSJTX_Telegram.defaults)
-    defaults.update (send = False)
+        ]
+    defaults = dict (send = False, **WSJTX_Telegram.defaults)
 
 # end class WSJTX_Free_Text
 WSJTX_Telegram.type_registry [WSJTX_Free_Text.type] = WSJTX_Free_Text
@@ -510,8 +500,8 @@ WSJTX_Telegram.type_registry [WSJTX_Free_Text.type] = WSJTX_Free_Text
 class WSJTX_WSPR_Decode (WSJTX_Telegram) :
 
     type   = 10
-    format = \
-        ( ('is_new',         qbool)
+    format = WSJTX_Telegram.format + \
+        [ ('is_new',         qbool)
         , ('time',           qtime)
         , ('snr',            qint32)
         , ('delta_t',        qdouble)
@@ -521,7 +511,7 @@ class WSJTX_WSPR_Decode (WSJTX_Telegram) :
         , ('grid',           qutf8)
         , ('power',          qint32)
         , ('off_air',        qbool)
-        )
+        ]
 
 # end class WSJTX_WSPR_Decode
 WSJTX_Telegram.type_registry [WSJTX_WSPR_Decode.type] = WSJTX_WSPR_Decode
@@ -529,10 +519,7 @@ WSJTX_Telegram.type_registry [WSJTX_WSPR_Decode.type] = WSJTX_WSPR_Decode
 class WSJTX_Location (WSJTX_Telegram) :
 
     type   = 11
-    format = \
-        ( ('location',   qutf8)
-        ,
-        )
+    format = WSJTX_Telegram.format + [('location', qutf8)]
 
 # end class WSJTX_Location
 WSJTX_Telegram.type_registry [WSJTX_Location.type] = WSJTX_Location
@@ -540,10 +527,7 @@ WSJTX_Telegram.type_registry [WSJTX_Location.type] = WSJTX_Location
 class WSJTX_Logged_ADIF (WSJTX_Telegram) :
 
     type   = 12
-    format = \
-        ( ('adif_txt',   qutf8)
-        ,
-        )
+    format = WSJTX_Telegram.format + [('adif_txt', qutf8)]
 
 # end class WSJTX_Logged_ADIF
 WSJTX_Telegram.type_registry [WSJTX_Logged_ADIF.type] = WSJTX_Logged_ADIF
@@ -564,14 +548,18 @@ class WSJTX_Highlight_Call (WSJTX_Telegram) :
     """
 
     type   = 13
-    format = \
-        ( ('callsign',       qutf8)
+    format = WSJTX_Telegram.format + \
+        [ ('callsign',       qutf8)
         , ('bg_color',       qcolor)
         , ('fg_color',       qcolor)
         , ('highlight_last', qbool)
+        ]
+    defaults = dict \
+        ( fg_color       = color_black
+        , bg_color       = color_white
+        , highlight_last = False
+        , ** WSJTX_Telegram.defaults
         )
-    defaults = dict (WSJTX_Telegram.defaults)
-    defaults.update (highlight_last = False)
 
 # end class WSJTX_Highlight_Call
 WSJTX_Telegram.type_registry [WSJTX_Highlight_Call.type] = WSJTX_Highlight_Call
@@ -579,10 +567,7 @@ WSJTX_Telegram.type_registry [WSJTX_Highlight_Call.type] = WSJTX_Highlight_Call
 class WSJTX_Switch_Config (WSJTX_Telegram) :
 
     type   = 14
-    format = \
-        ( ('adif_txt',   qutf8)
-        ,
-        )
+    format = WSJTX_Telegram.format + [('adif_txt', qutf8)]
 
 # end class WSJTX_Switch_Config
 WSJTX_Telegram.type_registry [WSJTX_Switch_Config.type] = WSJTX_Switch_Config
@@ -590,8 +575,8 @@ WSJTX_Telegram.type_registry [WSJTX_Switch_Config.type] = WSJTX_Switch_Config
 class WSJTX_Configure (WSJTX_Telegram) :
 
     type   = 15
-    format = \
-        ( ('mode',           qutf8)
+    format = WSJTX_Telegram.format + \
+        [ ('mode',           qutf8)
         , ('frq_tolerance',  quint32)
         , ('sub_mode',       qutf8)
         , ('fast_mode',      qbool)
@@ -600,14 +585,14 @@ class WSJTX_Configure (WSJTX_Telegram) :
         , ('dx_call',        qutf8)
         , ('dx_grid',        qutf8)
         , ('gen_messages',   qbool)
-        )
+        ]
 
 # end class WSJTX_Configure
 WSJTX_Telegram.type_registry [WSJTX_Configure.type] = WSJTX_Configure
 
 class UDP_Connector :
 
-    def __init__ (self, ip = '127.0.0.1', port = 2237, id = 'wsjt-server') :
+    def __init__ (self, ip = '127.0.0.1', port = 2237, id = None) :
         self.socket = socket (AF_INET, SOCK_DGRAM)
         self.ip   = ip
         self.port = port
@@ -615,27 +600,17 @@ class UDP_Connector :
         self.peer = {}
         self.adr  = None
         self.id   = id
+        if id is None :
+            self.id = WSJTX_Telegram.defaults ['id']
     # end def __init__
 
-    def color (self, callsign, fg_color = color_red, bg_color = color_white) :
-        kw = dict (id = self.id, version_number = 3)
-        tel = WSJTX_Highlight_Call \
-            ( callsign = callsign
-            , bg_color = bg_color
-            , fg_color = fg_color
-            , **kw
-            )
+    def color (self, callsign, **kw) :
+        tel = WSJTX_Highlight_Call (callsign = callsign, **kw)
         self.socket.sendto (tel.as_bytes (), self.adr)
     # end def color
 
-    def heartbeat (self) :
-        kw = dict (id = self.id, version_number = 3)
-        tel = WSJTX_Heartbeat \
-            ( max_schema = 3
-            , version    = '4711'
-            , revision   = ''
-            , **kw
-            )
+    def heartbeat (self, **kw) :
+        tel = WSJTX_Heartbeat (version = '4711', **kw)
         self.socket.sendto (tel.as_bytes (), self.adr)
     # end def heartbeat
 
@@ -659,6 +634,7 @@ class UDP_Connector :
 def main () :
     uc = UDP_Connector ()
     n  = 0
+    highlight = dict.fromkeys (sys.argv [1:])
     while 1 :
         tel = uc.receive ()
         n -= 1
@@ -667,8 +643,11 @@ def main () :
             uc.heartbeat ()
         if not isinstance (tel, (WSJTX_Decode, WSJTX_Status)):
             print (tel)
-        if isinstance (tel, WSJTX_Status) :
-            uc.color (sys.argv [1])
+        if isinstance (tel, WSJTX_Status) and not tel.decoding :
+            for h in highlight :
+                if not highlight [h] :
+                    uc.color (h, bg_color = color_red)
+                    highlight [h] = True
 # end def main
 
 if __name__ == '__main__' :
