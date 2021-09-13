@@ -675,7 +675,9 @@ class UDP_Connector :
             self.band = band.name
             # Invalidate all colors on band change
             for call in self.color_by_call :
-                self.pending_color [call] = color_tuple_invalid
+                # Can save some time not considering uncolored calls
+                if self.color_by_call [call] != color_tuple_invalid :
+                    self.pending_color [call] = color_tuple_invalid
             self.color_by_call = {}
         if not tel.decoding :
             for call in self.pending_color :
@@ -975,9 +977,13 @@ def get_wbf () :
 def main (get_wbf = get_wbf) :
     wbf = get_wbf ()
     uc  = UDP_Connector (wbf)
+    weedout = \
+        ( WSJTX_Decode, WSJTX_Status, WSJTX_Heartbeat, WSJTX_QSO_Logged
+        , WSJTX_Logged_ADIF
+        )
     while 1 :
         tel = uc.receive ()
-        if not isinstance (tel, (WSJTX_Decode, WSJTX_Status, WSJTX_Heartbeat)):
+        if not isinstance (tel, weedout):
             print (tel)
 # end def main
 
