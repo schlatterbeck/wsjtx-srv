@@ -53,7 +53,7 @@ setup \
     , packages         = ['wsjtx_srv']
     , platforms        = 'Any'
     #, url              = "http://rsclib.sourceforge.net/"
-    , scripts          = ['bin/wsjtx-srv']
+    , scripts          = ['bin/wsjtx-srv', 'bin/wbf']
     , python_requires  = rq
     , classifiers      = \
         [ 'Development Status :: 5 - Production/Stable'

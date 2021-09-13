@@ -1,0 +1,41 @@
+#!/usr/bin/python3
+
+from argparse  import ArgumentParser
+from wsjtx_srv import Worked_Before
+
+cmd = ArgumentParser ()
+cmd.add_argument \
+    ( 'callsign'
+    , help    = 'Callsign(s) to look up'
+    , nargs   = '+'
+    )
+cmd.add_argument \
+    ( '-a', '--adif'
+    , help    = 'ADIF file to parse, default=%(default)s'
+    , default =
+        '/home/ralf/checkout/own/admin/afu/logs-wsjt-oe3rsu/wsjtx_log.adi'
+    )
+cmd.add_argument \
+    ( '-b', '--band'
+    , help    = 'Band to do lookup for, default=%(default)s'
+    , default = '40m'
+    )
+cmd.add_argument \
+    ( '-e', '--encoding'
+    , help    = 'Encoding for ADIF file to parse, default=%(default)s'
+    , default = 'utf-8'
+    )
+args = cmd.parse_args ()
+
+wbf = Worked_Before (args.adif, args)
+for callsign in args.callsign :
+    print (callsign, end = ': ')
+    entities = wbf.fuzzy_match_dxcc (callsign)
+    if entities :
+        print \
+            ( "Entities: %s"
+            % ', '.join ('%s (%s)' % (e.name, e.code) for e in entities)
+            )
+    else :
+        print ("No DXCC Entities found for this call")
+    print ('     WBF-Status: %s' % wbf.lookup_verbose (args.band, callsign))

@@ -840,6 +840,11 @@ class Worked_Before :
                     self.add_entry (rec)
     # end def __init__
 
+    def fuzzy_match_dxcc (self, call) :
+        entities = self.dxcc_list.callsign_lookup (call)
+        return entities
+    # end def fuzzy_match_dxcc
+
     def fuzzy_match_dxcc_code (self, call, only_one = False) :
         """ Use prefix info from dxcc list to fuzzy match the call
         >>> w = Worked_Before ()
@@ -851,7 +856,7 @@ class Worked_Before :
         >>> w.fuzzy_match_dxcc_code ('RK3LG')
         ['054', '015']
         """
-        entities = self.dxcc_list.callsign_lookup (call)
+        entities = self.fuzzy_match_dxcc (call)
         if entities :
             if only_one and len (entities) == 1 :
                 return entities [0].code
@@ -905,20 +910,78 @@ class Worked_Before :
         self.add_dxcc_entry (rec)
     # end def add_entry
 
-    def lookup_color_new_call (self, call) :
+    def lookup_new_call (self, call) :
         """ Look up a call and decide if new on band or global
         >>> w = Worked_Before ()
-        >>> w.lookup_color_new_call ('SX4711TEST') [1]
-        QColor(alpha=65535, red=0, green=65535, blue=65535)
+        >>> w.lookup_new_call ('SX4711TEST')
+        'new_call'
         """
         r = self.band_info ['ALL'].lookup (call)
         if r :
-            return self.color_new_call_band
-        return self.color_new_call
-    # end def lookup_color_new_call
+            return 'new_call_band'
+        return 'new_call'
+    # end def lookup_new_call
+
+    def lookup (self, band, call) :
+        """ Look up the status for this call for this band
+            Involves checking of a new DXCC (on band or globally)
+            and the check of a new call (on band or globally)
+            The following test looks up RK0 which matches both, European
+            Russia and Asiatic Russia.
+        >>> w = Worked_Before ()
+        >>> w.band_info ['40m'] = WBF ('40m')
+        >>> w.dxcc_info ['40m'] = WBF ('40m')
+        >>> w.dxcc_info ['ALL'] = WBF ('ALL')
+        >>> for code in ('054', '015', '236') :
+        ...     w.dxcc_info ['40m'].add_item (code)
+        ...     w.dxcc_info ['ALL'].add_item (code)
+        >>> w.lookup ('40m', 'RK0')
+        'new_call'
+        >>> w.lookup ('40m', 'SX4711TEST')
+        'new_call'
+        """
+        if band not in self.band_info :
+            return 'new_dxcc'
+        r = self.band_info [band].lookup (call)
+        if r :
+            return 'wbf'
+        dxccs = self.fuzzy_match_dxcc_code (call)
+        if not dxccs :
+            return 'new_dxcc'
+        r2 = 1
+        for dxcc in dxccs :
+            r2 = r2 and self.dxcc_info ['ALL'].lookup (dxcc)
+        # Matched for *all* dxccs; not new on any band
+        if r2 :
+            return self.lookup_new_call (call)
+        r3 = 1
+        for dxcc in dxccs :
+            r3 = r3 and self.dxcc_info [band].lookup (dxcc)
+        # Matched for *all* dxccs; not new dxcc on this band
+        if r3 :
+            return 'new_dxcc'
+        return 'new_dxcc_band'
+    # end def lookup
+
+    color_lookup_table = dict \
+        (( ('new_dxcc',      ('New DXCC',         'color_dxcc'))
+        ,  ('new_dxcc_band', ('New DXCC on Band', 'color_dxcc_band'))
+        ,  ('new_call',      ('New Call',         'color_new_call'))
+        ,  ('new_call_band', ('New Call on Band', 'color_new_call_band'))
+        ,  ('wbf',           ('Worked before',    'color_wbf'))
+        ))
+
+    def lookup_verbose (self, band, call) :
+        """ Look up the verbose description of worked-before status for
+            this call for this band
+        """
+        status = self.lookup (band, call)
+        return self.color_lookup_table [status][0]
+    # end def lookup_verbose
 
     def lookup_color (self, band, call) :
         """ Look up the color for this call for this band
+            We to a simple lookup and map the result to a color.
             Involves checking of a new DXCC (on band or globally)
             and the check of a new call (on band or globally)
             The following test looks up RK0 which matches both, European
@@ -933,27 +996,8 @@ class Worked_Before :
         >>> w.lookup_color ('40m', 'RK0') [1]
         QColor(alpha=65535, red=0, green=65535, blue=65535)
         """
-        if band not in self.band_info :
-            return self.color_dxcc
-        r = self.band_info [band].lookup (call)
-        if r :
-            return self.color_wbf
-        dxccs = self.fuzzy_match_dxcc_code (call)
-        if not dxccs :
-            return self.color_dxcc
-        r2 = 1
-        for dxcc in dxccs :
-            r2 = r2 and self.dxcc_info ['ALL'].lookup (dxcc)
-        # Matched for *all* dxccs; not new on any band
-        if r2 :
-            return self.lookup_color_new_call (call)
-        r3 = 1
-        for dxcc in dxccs :
-            r3 = r3 and self.dxcc_info [band].lookup (dxcc)
-        # Matched for *all* dxccs; not new dxcc on this band
-        if r3 :
-            return self.color_dxcc
-        return self.color_dxcc_band
+        status = self.lookup (band, call)
+        return getattr (self, self.color_lookup_table [status][1])
     # end def lookup_color
 
 # end class Worked_Before
