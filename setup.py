@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (C) 2005-20 Dr. Ralf Schlatterbeck Open Source Consulting.
+# Copyright (C) 2021 Dr. Ralf Schlatterbeck Open Source Consulting.
 # Reichergasse 131, A-3411 Weidling.
 # Web: http://www.runtux.com Email: office@runtux.com
 # All rights reserved
@@ -53,10 +53,8 @@ setup \
     , packages         = ['wsjtx_srv']
     , platforms        = 'Any'
     #, url              = "http://rsclib.sourceforge.net/"
-    #, scripts          = ['ast_sip_check']
+    , scripts          = ['bin/wsjtx-srv']
     , python_requires  = rq
-    #, download_url     = \
-    #    "%(download)s/%(VERSION)s/rsclib-%(VERSION)s.tar.gz" % locals ()
     , classifiers      = \
         [ 'Development Status :: 5 - Production/Stable'
         , 'License :: OSI Approved :: ' + license

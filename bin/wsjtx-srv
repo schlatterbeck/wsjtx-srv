@@ -1,0 +1,5 @@
+#!/usr/bin/python3
+
+from wsjtx_srv import main
+
+main ()
