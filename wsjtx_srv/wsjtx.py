@@ -930,15 +930,27 @@ class Worked_Before :
             Russia and Asiatic Russia.
         >>> w = Worked_Before ()
         >>> w.band_info ['40m'] = WBF ('40m')
+        >>> w.band_info ['17m'] = WBF ('40m')
+        >>> w.band_info ['10m'] = WBF ('40m')
         >>> w.dxcc_info ['40m'] = WBF ('40m')
+        >>> w.dxcc_info ['17m'] = WBF ('17m')
+        >>> w.dxcc_info ['10m'] = WBF ('17m')
         >>> w.dxcc_info ['ALL'] = WBF ('ALL')
-        >>> for code in ('054', '015', '236') :
+        >>> for code in ('054', '015', '236', '279') :
         ...     w.dxcc_info ['40m'].add_item (code)
         ...     w.dxcc_info ['ALL'].add_item (code)
         >>> w.lookup ('40m', 'RK0')
         'new_call'
         >>> w.lookup ('40m', 'SX4711TEST')
         'new_call'
+
+        # Worked on 40m, it's in 'ALL' and 40m, should be new on band
+        >>> w.lookup ('17m', 'GM0XXX')
+        'new_dxcc_band'
+
+        # Nothing worked for this DXCC
+        >>> w.lookup ('10m', 'GG7XXX')
+        'new_dxcc'
         """
         if band not in self.band_info :
             return 'new_dxcc'
@@ -950,17 +962,17 @@ class Worked_Before :
             return 'new_dxcc'
         r2 = 1
         for dxcc in dxccs :
-            r2 = r2 and self.dxcc_info ['ALL'].lookup (dxcc)
-        # Matched for *all* dxccs; not new on any band
+            r2 = r2 and self.dxcc_info [band].lookup (dxcc)
+        # Matched for *all* dxccs; not new dxcc on this (and any) band
         if r2 :
             return self.lookup_new_call (call)
         r3 = 1
         for dxcc in dxccs :
-            r3 = r3 and self.dxcc_info [band].lookup (dxcc)
+            r3 = r3 and self.dxcc_info ['ALL'].lookup (dxcc)
         # Matched for *all* dxccs; not new dxcc on this band
         if r3 :
-            return 'new_dxcc'
-        return 'new_dxcc_band'
+            return 'new_dxcc_band'
+        return 'new_dxcc'
     # end def lookup
 
     color_lookup_table = dict \
