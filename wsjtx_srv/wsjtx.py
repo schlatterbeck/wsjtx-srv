@@ -2,12 +2,13 @@
 
 import sys
 import io
-from socket import socket, AF_INET, SOCK_DGRAM
-from struct import pack, unpack
+from socket           import socket, AF_INET, SOCK_DGRAM
+from struct           import pack, unpack
+from argparse         import ArgumentParser
 from rsclib.autosuper import autosuper
-from afu.adif import ADIF
-from afu.dxcc import DXCC_File
-from argparse import ArgumentParser
+from afu.adif         import ADIF
+from afu.dxcc         import DXCC_File
+from afu.bandplan     import bandplan_austria
 
 class Protocol_Element :
     """ A single protocol element to be parsed from binary format or
@@ -235,6 +236,7 @@ color_pink  = QColor (0xFFFF, 0, 0xFFFF)
 color_pink1 = QColor (0xFFFF, 0xAAAA, 0xFFFF)
 
 color_invalid = QColor (spec = QColor.spec_invalid)
+color_tuple_invalid = (color_invalid, color_invalid)
 
 # Shortcuts for used data types, also for consistency
 quint8     = ('!B', 1)
@@ -603,7 +605,7 @@ WSJTX_Telegram.type_registry [WSJTX_Configure.type] = WSJTX_Configure
 class UDP_Connector :
 
     def __init__ (self, wbf, ip = '127.0.0.1', port = 2237, id = None) :
-        self.band   = '40m' # FIXME
+        self.band   = None
         self.ip     = ip
         self.port   = port
         self.socket = socket (AF_INET, SOCK_DGRAM)
@@ -656,6 +658,13 @@ class UDP_Connector :
     def handle_status (self, tel) :
         """ Handle pending coloring
         """
+        band = bandplan_austria.lookup (tel.dial_frq)
+        if self.band != band.name :
+            self.band = band.name
+            # Invalidate all colors on band change
+            for call in self.color_by_call :
+                self.pending_color [call] = color_tuple_invalid
+            self.color_by_call = {}
         if not tel.decoding :
             for call in self.pending_color :
                 fg = self.pending_color [call][0]
@@ -790,7 +799,7 @@ class Worked_Before :
     """
 
     # defaults (fg color, bg color)
-    color_wbf           = (color_invalid, color_invalid)
+    color_wbf           = color_tuple_invalid
     color_dxcc          = (color_black,   color_pink)
     color_dxcc_band     = (color_black,   color_pink1)
     color_new_call      = (color_black,   color_cyan)
@@ -955,6 +964,7 @@ def main (get_wbf = get_wbf) :
 __all__ = [ "main", "QDateTime", "QColor", "color_red", "color_green"
           , "color_blue", "color_white", "color_black"
           , "color_cyan", "color_cyan1", "color_pink", "color_pink1"
+          , "color_tuple_invalid"
           , "WSJTX_Heartbeat", "WSJTX_Status", "WSJTX_Decode"
           , "WSJTX_Clear", "WSJTX_Reply", "WSJTX_QSO_Logged"
           , "WSJTX_Close", "WSJTX_Replay", "WSJTX_Halt_TX"
