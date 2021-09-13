@@ -21,6 +21,11 @@ cmd.add_argument \
     , default = '40m'
     )
 cmd.add_argument \
+    ( '-d', '--use-dxcc'
+    , help    = 'If specified, use dxcc list for call lookup'
+    , action  = 'store_true'
+    )
+cmd.add_argument \
     ( '-e', '--encoding'
     , help    = 'Encoding for ADIF file to parse, default=%(default)s'
     , default = 'utf-8'
@@ -30,7 +35,7 @@ args = cmd.parse_args ()
 wbf = Worked_Before (args.adif, args)
 for callsign in args.callsign :
     print (callsign, end = ': ')
-    entities = wbf.fuzzy_match_dxcc (callsign)
+    entities = wbf.fuzzy_match_dxcc (callsign, use_dxcc = args.use_dxcc)
     if entities :
         print \
             ( "Entities: %s"

@@ -7,7 +7,7 @@ from struct           import pack, unpack
 from argparse         import ArgumentParser
 from rsclib.autosuper import autosuper
 from afu.adif         import ADIF
-from afu.dxcc         import DXCC_File
+from afu.cty          import CTY_DXCC
 from afu.bandplan     import bandplan_austria
 
 class Protocol_Element :
@@ -824,9 +824,7 @@ class Worked_Before :
         for k in kw :
             if k.startswith ('color_') :
                 setattr (self, k, kw [k])
-        self.dxcc_list = DXCC_File ()
-        self.dxcc_list.parse ()
-        self.dxcc_list = self.dxcc_list.by_type ['CURRENT']
+        self.cty_dxcc = CTY_DXCC ()
         self.band_info = {}
         self.dxcc_info = {} # by dxcc number
         self.band_info ['ALL'] = WBF ('ALL')
@@ -840,8 +838,11 @@ class Worked_Before :
                     self.add_entry (rec)
     # end def __init__
 
-    def fuzzy_match_dxcc (self, call) :
-        entities = self.dxcc_list.callsign_lookup (call)
+    def fuzzy_match_dxcc (self, call, use_dxcc = False) :
+        lookup = self.cty_dxcc.callsign_lookup
+        if use_dxcc :
+            lookup = self.cty_dxcc.dxcc.callsign_lookup
+        entities = lookup (call)
         return entities
     # end def fuzzy_match_dxcc
 
@@ -891,10 +892,10 @@ class Worked_Before :
         if getattr (rec, 'dxcc', None) :
             dxcc_code = '%03d' % int (rec.dxcc, 10)
         elif getattr (rec, 'country', None) :
-            dxcc = self.dxcc_list.by_name [rec.country]
+            dxcc = self.cty_dxcc.dxcc.by_name [rec.country]
             dxcc_code = dxcc.code
         elif getattr (rec, 'country_intl', None) :
-            dxcc = self.dxcc_list.by_name [rec.country_intl]
+            dxcc = self.cty_dxcc.dxcc.by_name [rec.country_intl]
             dxcc_code = dxcc.code
         else :
             dxcc_code = self.fuzzy_match_dxcc_code (rec.call, only_one = 1)
