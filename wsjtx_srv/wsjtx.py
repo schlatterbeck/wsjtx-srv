@@ -1,9 +1,13 @@
 #!/usr/bin/python3
 
 import sys
+import io
 from socket import socket, AF_INET, SOCK_DGRAM
 from struct import pack, unpack
 from rsclib.autosuper import autosuper
+from afu.adif import ADIF
+from afu.dxcc import DXCC_File
+from argparse import ArgumentParser
 
 class Protocol_Element :
     """ A single protocol element to be parsed from binary format or
@@ -225,6 +229,12 @@ color_green = QColor (green = QColor.cmax)
 color_blue  = QColor (blue = QColor.cmax)
 color_white = QColor (QColor.cmax, QColor.cmax, QColor.cmax)
 color_black = QColor ()
+color_cyan  = QColor (0, 0xFFFF, 0xFFFF)
+color_cyan1 = QColor (0x9999, 0xFFFF, 0xFFFF)
+color_pink  = QColor (0xFFFF, 0, 0xFFFF)
+color_pink1 = QColor (0xFFFF, 0xAAAA, 0xFFFF)
+
+color_invalid = QColor (spec = QColor.spec_invalid)
 
 # Shortcuts for used data types, also for consistency
 quint8     = ('!B', 1)
@@ -592,16 +602,21 @@ WSJTX_Telegram.type_registry [WSJTX_Configure.type] = WSJTX_Configure
 
 class UDP_Connector :
 
-    def __init__ (self, ip = '127.0.0.1', port = 2237, id = None) :
+    def __init__ (self, wbf, ip = '127.0.0.1', port = 2237, id = None) :
+        self.band   = '40m' # FIXME
+        self.ip     = ip
+        self.port   = port
         self.socket = socket (AF_INET, SOCK_DGRAM)
-        self.ip   = ip
-        self.port = port
         self.socket.bind ((self.ip, self.port))
+        self.wbf  = wbf
         self.peer = {}
         self.adr  = None
         self.id   = id
         if id is None :
             self.id = WSJTX_Telegram.defaults ['id']
+        self.heartbeat_seen = False
+        self.color_by_call  = {}
+        self.pending_color  = {}
     # end def __init__
 
     def color (self, callsign, **kw) :
@@ -609,10 +624,111 @@ class UDP_Connector :
         self.socket.sendto (tel.as_bytes (), self.adr)
     # end def color
 
+    def handle (self, tel) :
+        """ Handle given telegram.
+            We send a heartbeat whenever we receive one.
+            In addition we parse Decode messages, extract the call sign
+            and determine worked-before and coloring.
+        """
+        if not self.heartbeat_seen or isinstance (tel, WSJTX_Heartbeat) :
+            self.heartbeat ()
+        if isinstance (tel, WSJTX_Status) :
+            self.handle_status (tel)
+        if isinstance (tel, WSJTX_Decode) :
+            self.handle_decode (tel)
+    # end def handle
+
+    def handle_decode (self, tel) :
+        if tel.off_air or not tel.is_new :
+            return
+        call  = self.parse_message (tel) or ''
+        call  = call.lstrip ('<').rstrip ('>')
+        if not call or call == '...' :
+            return
+        color = self.wbf.lookup_color (self.band, call)
+        if call in self.color_by_call :
+            if self.color_by_call [call] != color :
+                self.update_color (call, color)
+        else :
+            self.update_color (call, color)
+    # end def handle_decode
+
+    def handle_status (self, tel) :
+        """ Handle pending coloring
+        """
+        if not tel.decoding :
+            for call in self.pending_color :
+                fg = self.pending_color [call][0]
+                bg = self.pending_color [call][1]
+                self.color (call, fg_color = fg, bg_color = bg)
+            self.pending_color = {}
+    # end def handle_status
+
     def heartbeat (self, **kw) :
         tel = WSJTX_Heartbeat (version = '4711', **kw)
         self.socket.sendto (tel.as_bytes (), self.adr)
     # end def heartbeat
+
+    def parse_message (self, tel) :
+        """ Parse the message property of a decode which includes the
+            callsign(s). Note that we try to use only the second
+            (sender) callsign.
+        >>> u = UDP_Connector (port = 4711, wbf = None)
+        >>> class t :
+        ...     message = None
+        >>> t.message = 'JA1XXX YL2XXX R-18'
+        >>> u.parse_message (t)
+        'YL2XXX'
+        >>> t.message = 'UB9XXX OH1XXX KP20'
+        >>> u.parse_message (t)
+        'OH1XXX'
+        >>> t.message = 'RZ6XXX DL9XXX -06'
+        >>> u.parse_message (t)
+        'DL9XXX'
+        >>> t.message = 'IZ7XXX EW4XXX 73'
+        >>> u.parse_message (t)
+        'EW4XXX'
+        >>> t.message = 'CQ II0XXXX'
+        >>> u.parse_message (t)
+        'II0XXXX'
+        >>> t.message = 'CQ PD0XXX JO22'
+        >>> u.parse_message (t)
+        'PD0XXX'
+        >>> t.message = 'CQ NA PD0XXX JO22'
+        >>> u.parse_message (t)
+        'PD0XXX'
+        >>> t.message = 'OK1XXX F4IXXX -07'
+        >>> u.parse_message (t)
+        'F4IXXX'
+        >>> t.message = 'TM50XXX <F6XXX> RR73'
+        >>> u.parse_message (t)
+        '<F6XXX>'
+        >>> t.message = 'CQ E73XXX JN94     a1'
+        >>> u.parse_message (t)
+        'E73XXX'
+        """
+        if not tel.message :
+            print ("Empty message: %s" % tel)
+            return None
+        l = tel.message.split ()
+        # Strip off marginal decode info
+        if l [-1].startswith ('a') :
+            l = l [:-1]
+        if l [0] in ('CQ', 'QRZ') :
+            # CQ DX or similar
+            if len (l) == 4 :
+                return l [2]
+            return l [1]
+        if len (l) == 2 :
+            return l [1]
+        if len (l) < 2 :
+            print ("Unknown message: %s" % tel.message)
+            return None
+        if len (l) == 3 :
+            return l [1]
+        print ("Unknown message: %s" % tel.message)
+        return None
+    # end def parse_message
 
     def receive (self) :
         bytes, address = self.socket.recvfrom (4096)
@@ -621,6 +737,7 @@ class UDP_Connector :
             self.peer [tel.id] = address
         if not self.adr :
             self.adr = address
+        self.handle (tel)
         return tel
     # end def receive
 
@@ -629,19 +746,210 @@ class UDP_Connector :
             self.adr = self.peer [peername]
     # end def set_peer
 
+    def update_color (self, call, color) :
+        self.color_by_call [call] = color
+        self.pending_color [call] = color
+    # end def update_color
+
 # end class UDP_Connector
 
-def main () :
-    uc = UDP_Connector ()
-    n  = 0
+class WBF (autosuper) :
+    """ Worked before info
+    """
+
+    def __init__ (self, band, always_match = False) :
+        self.band         = band
+        self.wbf          = {}
+        self.always_match = always_match
+    # end def __init__
+
+    def add_item (self, item, record = 1) :
+        self.wbf [item] = record
+    # end def add_item
+
+    def lookup (self, item) :
+        if self.always_match :
+            return None
+        return self.wbf.get (item, None)
+    # end def lookup
+
+# end class WBF
+
+class Worked_Before :
+    """ This parses an ADIF log file and extracts worked-before info
+        This can then be used by the UDP_Connector to color calls by
+        parsing calls from incoming Decode packets.
+        We have a WBF per band and a WBF per known DXCC.
+        if we cannot determine the dxcc info for a record (unfortunately
+        not provided by wsjtx currently) all records will be colored
+        only in the color for "new call" or "new call on band".
+        By default we import the DXCC list from ARRL and look up the
+        callsign there. This is fuzzy matching and a single call can
+        match more than one entity. Only if there is an exact match do
+        we use the match for determining worked-before status.
+    """
+
+    # defaults (fg color, bg color)
+    color_wbf           = (color_invalid, color_invalid)
+    color_dxcc          = (color_black,   color_pink)
+    color_dxcc_band     = (color_black,   color_pink1)
+    color_new_call      = (color_black,   color_cyan)
+    color_new_call_band = (color_black,   color_cyan1)
+
+    def __init__ (self, adif = None, args = None, **kw) :
+        # Color override
+        for k in kw :
+            if k.startswith ('color_') :
+                setattr (self, k, kw [k])
+        self.dxcc_list = DXCC_File ()
+        self.dxcc_list.parse ()
+        self.dxcc_list = self.dxcc_list.by_type ['CURRENT']
+        self.band_info = {}
+        self.dxcc_info = {} # by dxcc number
+        self.band_info ['ALL'] = WBF ('ALL')
+        self.dxcc_info ['ALL'] = WBF ('ALL')
+        if adif :
+            with io.open (adif, 'r', encoding = args.encoding) as f :
+                adif = ADIF (f)
+                for rec in adif :
+                    if not rec.band :
+                        continue
+                    if rec.band not in self.band_info :
+                        self.band_info [rec.band] = WBF (rec.band)
+                    self.band_info [rec.band].add_item (rec.call, rec)
+                    self.band_info ['ALL'].   add_item (rec.call, rec)
+                    self.match_dxcc (rec)
+    # end def __init__
+
+    def fuzzy_match_dxcc_code (self, call, only_one = False) :
+        """ Use prefix info from dxcc list to fuzzy match the call
+        >>> w = Worked_Before ()
+        >>> w.fuzzy_match_dxcc_code ('OE3RSU')
+        ['206']
+        >>> w.fuzzy_match_dxcc_code ('OE3RSU', only_one = True)
+        '206'
+        >>> w.fuzzy_match_dxcc_code ('RK3LG', only_one = True)
+        >>> w.fuzzy_match_dxcc_code ('RK3LG')
+        ['054', '015']
+        """
+        entities = self.dxcc_list.callsign_lookup (call)
+        if entities :
+            if only_one and len (entities) == 1 :
+                return entities [0].code
+            elif not only_one :
+                return [e.code for e in entities]
+    # end def fuzzy_match_dxcc_code
+
+    def match_dxcc (self, rec) :
+        """ Match the dxcc for this adif record
+            Note that we're using the standard ADIF DXCC entity code in
+            the ADIF field DXCC *or* the COUNTRY field (in ASCII) or the
+            COUNTRY_INTL field (in utf-8). Since all entity names are in
+            english, all the COUNTRY_INTL should be in ASCII (a subset
+            of utf-8) anyway. We match country to code and vice-versa
+            via the ARRL dxcc list. If all this fails we do a fuzzy
+            match on the prefix of the call.
+
+            Note that you may want to code your own dxcc lookup for
+            calls: You may want to treat dxcc entities for which you
+            worked someone but do not have a QSL (or no LOTW QSL) as not
+            worked before. So in that case you can override this
+            routine.
+        """
+        dxcc_code = None
+        if getattr (rec, 'dxcc', None) :
+            dxcc_code = '%03d' % int (rec.dxcc, 10)
+        elif getattr (rec, 'country', None) :
+            dxcc = self.dxcc_list.by_name [rec.country]
+            dxcc_code = dxcc.code
+        elif getattr (rec, 'country_intl', None) :
+            dxcc = self.dxcc_list.by_name [rec.country_intl]
+            dxcc_code = dxcc.code
+        else :
+            dxcc_code = self.fuzzy_match_dxcc_code (rec.call, only_one = 1)
+        if dxcc_code :
+            if rec.band not in self.dxcc_info :
+                self.dxcc_info [rec.band] = WBF (rec.band)
+            self.dxcc_info [rec.band].add_item (dxcc_code)
+            self.dxcc_info ['ALL'].   add_item (dxcc_code)
+    # end def match_dxcc
+
+    def lookup_color_new_call (self, call) :
+        """ Look up a call and decide if new on band or global
+        >>> w = Worked_Before ()
+        >>> w.lookup_color_new_call ('SX4711TEST') [1]
+        QColor(alpha=65535, red=0, green=65535, blue=65535)
+        """
+        r = self.band_info ['ALL'].lookup (call)
+        if r :
+            return self.color_new_call_band
+        return self.color_new_call
+    # end def lookup_color_new_call
+
+    def lookup_color (self, band, call) :
+        """ Look up the color for this call for this band
+            Involves checking of a new DXCC (on band or globally)
+            and the check of a new call (on band or globally)
+            The following test looks up RK0 which matches both, European
+            Russia and Asiatic Russia.
+        >>> w = Worked_Before ()
+        >>> w.band_info ['40m'] = WBF ('40m')
+        >>> w.dxcc_info ['40m'] = WBF ('40m')
+        >>> w.dxcc_info ['ALL'] = WBF ('ALL')
+        >>> for code in ('054', '015') :
+        ...     w.dxcc_info ['40m'].add_item (code)
+        ...     w.dxcc_info ['ALL'].add_item (code)
+        >>> w.lookup_color ('40m', 'RK0') [1]
+        QColor(alpha=65535, red=0, green=65535, blue=65535)
+        """
+        if band not in self.band_info :
+            return self.color_dxcc
+        r = self.band_info [band].lookup (call)
+        if r :
+            return self.color_wbf
+        dxccs = self.fuzzy_match_dxcc_code (call)
+        if not dxccs :
+            return self.color_dxcc
+        r2 = 1
+        for dxcc in dxccs :
+            r2 = r2 and self.dxcc_info ['ALL'].lookup (dxcc)
+        # Matched for *all* dxccs; not new on any band
+        if r2 :
+            return self.lookup_color_new_call (call)
+        r3 = 1
+        for dxcc in dxccs :
+            r3 = r3 and self.dxcc_info [band].lookup (dxcc)
+        # Matched for *all* dxccs; not new dxcc on this band
+        if r3 :
+            return self.color_dxcc
+        return self.color_dxcc_band
+    # end def lookup_color
+
+# end class Worked_Before
+
+def get_wbf () :
+    cmd = ArgumentParser ()
+    cmd.add_argument \
+        ( "adif"
+        , help  = 'ADIF file to parse, should be specified'
+        )
+    cmd.add_argument \
+        ( "-e", "--encoding"
+        , help    = 'ADIF file character encoding, default=%(default)s'
+        , default = 'utf-8'
+        )
+    args = cmd.parse_args ()
+    wbf = Worked_Before (args = args, adif = args.adif)
+    return wbf
+# end def get_wbf
+
+def main (get_wbf = get_wbf) :
+    wbf = get_wbf ()
+    uc  = UDP_Connector (wbf)
     highlight = dict.fromkeys (sys.argv [1:])
     while 1 :
         tel = uc.receive ()
-        n -= 1
-        if n < 0 :
-            n = 20
-            uc.heartbeat ()
-        if not isinstance (tel, (WSJTX_Decode, WSJTX_Status)):
+        if not isinstance (tel, (WSJTX_Decode,)):
             print (tel)
         if isinstance (tel, WSJTX_Status) and not tel.decoding :
             for h in highlight :
@@ -652,6 +960,7 @@ def main () :
 
 __all__ = [ "main", "QDateTime", "QColor", "color_red", "color_green"
           , "color_blue", "color_white", "color_black"
+          , "color_cyan", "color_cyan1", "color_pink", "color_pink1"
           , "WSJTX_Heartbeat", "WSJTX_Status", "WSJTX_Decode"
           , "WSJTX_Clear", "WSJTX_Reply", "WSJTX_QSO_Logged"
           , "WSJTX_Close", "WSJTX_Replay", "WSJTX_Halt_TX"
