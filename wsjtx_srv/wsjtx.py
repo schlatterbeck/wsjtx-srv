@@ -946,16 +946,10 @@ def get_wbf () :
 def main (get_wbf = get_wbf) :
     wbf = get_wbf ()
     uc  = UDP_Connector (wbf)
-    highlight = dict.fromkeys (sys.argv [1:])
     while 1 :
         tel = uc.receive ()
         if not isinstance (tel, (WSJTX_Decode,)):
             print (tel)
-        if isinstance (tel, WSJTX_Status) and not tel.decoding :
-            for h in highlight :
-                if not highlight [h] :
-                    uc.color (h, bg_color = color_red)
-                    highlight [h] = True
 # end def main
 
 __all__ = [ "main", "QDateTime", "QColor", "color_red", "color_green"
@@ -967,6 +961,7 @@ __all__ = [ "main", "QDateTime", "QColor", "color_red", "color_green"
           , "WSJTX_Free_Text", "WSJTX_WSPR_Decode", "WSJTX_Location"
           , "WSJTX_Logged_ADIF", "WSJTX_Highlight_Call"
           , "WSJTX_Switch_Config", "WSJTX_Configure", "UDP_Connector"
+          , "WBF", "Worked_Before"
           ]
 
 if __name__ == '__main__' :
