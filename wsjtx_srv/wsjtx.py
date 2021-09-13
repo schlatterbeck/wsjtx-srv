@@ -638,6 +638,8 @@ class UDP_Connector :
             self.handle_status (tel)
         if isinstance (tel, WSJTX_Decode) :
             self.handle_decode (tel)
+        if isinstance (tel, WSJTX_Logged_ADIF) :
+            self.handle_logged (tel)
     # end def handle
 
     def handle_decode (self, tel) :
@@ -654,6 +656,16 @@ class UDP_Connector :
         else :
             self.update_color (call, color)
     # end def handle_decode
+
+    def handle_logged (self, tel) :
+        """ Handle a Log event when a QSO is logged.
+            We directly receive ADIF from WSJTX
+        """
+        adif = ADIF (io.StringIO (tel.adif_txt))
+        assert len (adif.records) == 1
+        rec = adif.records [0]
+        self.wbf.add_entry (rec)
+    # end def handle_logged
 
     def handle_status (self, tel) :
         """ Handle pending coloring
@@ -823,11 +835,7 @@ class Worked_Before :
                 for rec in adif :
                     if not rec.band :
                         continue
-                    if rec.band not in self.band_info :
-                        self.band_info [rec.band] = WBF (rec.band)
-                    self.band_info [rec.band].add_item (rec.call, rec)
-                    self.band_info ['ALL'].   add_item (rec.call, rec)
-                    self.match_dxcc (rec)
+                    self.add_entry (rec)
     # end def __init__
 
     def fuzzy_match_dxcc_code (self, call, only_one = False) :
@@ -849,7 +857,14 @@ class Worked_Before :
                 return [e.code for e in entities]
     # end def fuzzy_match_dxcc_code
 
-    def match_dxcc (self, rec) :
+    def add_call_entry (self, rec) :
+        if rec.band not in self.band_info :
+            self.band_info [rec.band] = WBF (rec.band)
+        self.band_info [rec.band].add_item (rec.call, rec)
+        self.band_info ['ALL'].   add_item (rec.call, rec)
+    # end def add_call_entry
+
+    def add_dxcc_entry (self, rec) :
         """ Match the dxcc for this adif record
             Note that we're using the standard ADIF DXCC entity code in
             the ADIF field DXCC *or* the COUNTRY field (in ASCII) or the
@@ -881,7 +896,12 @@ class Worked_Before :
                 self.dxcc_info [rec.band] = WBF (rec.band)
             self.dxcc_info [rec.band].add_item (dxcc_code)
             self.dxcc_info ['ALL'].   add_item (dxcc_code)
-    # end def match_dxcc
+    # end def add_dxcc_entry
+
+    def add_entry (self, rec) :
+        self.add_call_entry (rec)
+        self.add_dxcc_entry (rec)
+    # end def add_entry
 
     def lookup_color_new_call (self, call) :
         """ Look up a call and decide if new on band or global
@@ -957,7 +977,7 @@ def main (get_wbf = get_wbf) :
     uc  = UDP_Connector (wbf)
     while 1 :
         tel = uc.receive ()
-        if not isinstance (tel, (WSJTX_Decode,)):
+        if not isinstance (tel, (WSJTX_Decode, WSJTX_Status, WSJTX_Heartbeat)):
             print (tel)
 # end def main
 
