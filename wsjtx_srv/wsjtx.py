@@ -756,6 +756,12 @@ class UDP_Connector :
         >>> t.message = 'CQ E73XXX OI32     ? a1'
         >>> u.parse_message (t)
         'E73XXX'
+        >>> t.message = 'CQ DX IK2XX'
+        >>> u.parse_message (t)
+        'IK2XX'
+        >>> t.message = 'EFHW 50W 73'
+        >>> u.parse_message (t)
+        Unknown message: EFHW 50W 73
         """
         if not tel.message :
             print ("Empty message: %s" % tel)
@@ -773,6 +779,9 @@ class UDP_Connector :
             # CQ DX or similar
             if len (l) == 4 :
                 return l [2]
+            # CQ DX or something without locator
+            if len (l) == 3 and len (l [2]) != 4 and len (l [1]) <= 4 :
+                return l [2]
             return l [1]
         if len (l) == 2 and l [1] != '73' :
             return l [1]
@@ -781,7 +790,7 @@ class UDP_Connector :
             return None
         if len (l) == 4 and l [2] == 'R' :
             return l [1]
-        if len (l) == 3 :
+        if len (l) == 3 and len (l [1]) > 3 :
             return l [1]
         print ("Unknown message: %s" % tel.message)
         return None
