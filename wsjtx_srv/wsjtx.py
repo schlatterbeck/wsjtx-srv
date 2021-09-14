@@ -2,6 +2,7 @@
 
 import sys
 import io
+import atexit
 from socket           import socket, AF_INET, SOCK_DGRAM
 from struct           import pack, unpack
 from argparse         import ArgumentParser
@@ -619,12 +620,31 @@ class UDP_Connector :
         self.heartbeat_seen = False
         self.color_by_call  = {}
         self.pending_color  = {}
+        # Register atexit handler for cleanup
+        atexit.register (self.cleanup)
     # end def __init__
+
+    def cleanup (self) :
+        self.decolor ()
+        self.perform_pending_changes ()
+    # end def cleanup
 
     def color (self, callsign, **kw) :
         tel = WSJTX_Highlight_Call (callsign = callsign, **kw)
         self.socket.sendto (tel.as_bytes (), self.adr)
     # end def color
+
+    def decolor (self) :
+        """ Remove all coloring
+            Needed on band change and when exiting
+            Note that this only schedules the changes.
+        """
+        for call in self.color_by_call :
+            # Can save some time not considering uncolored calls
+            if self.color_by_call [call] != color_tuple_invalid :
+                self.pending_color [call] = color_tuple_invalid
+        self.color_by_call = {}
+    # end def decolor
 
     def handle (self, tel) :
         """ Handle given telegram.
@@ -640,7 +660,16 @@ class UDP_Connector :
             self.handle_decode (tel)
         if isinstance (tel, WSJTX_Logged_ADIF) :
             self.handle_logged (tel)
+        if isinstance (tel, WSJTX_Close) :
+            self.handle_close (tel)
     # end def handle
+
+    def handle_close (self, tel) :
+        """ Just exit when wsjtx exits
+        """
+        assert self.peer [tel.id] == self.adr
+        sys.exit (0)
+    # end def handle_close
 
     def handle_decode (self, tel) :
         if tel.off_air or not tel.is_new :
@@ -674,17 +703,9 @@ class UDP_Connector :
         if self.band != band.name :
             self.band = band.name
             # Invalidate all colors on band change
-            for call in self.color_by_call :
-                # Can save some time not considering uncolored calls
-                if self.color_by_call [call] != color_tuple_invalid :
-                    self.pending_color [call] = color_tuple_invalid
-            self.color_by_call = {}
+            self.decolor ()
         if not tel.decoding :
-            for call in self.pending_color :
-                fg = self.pending_color [call][0]
-                bg = self.pending_color [call][1]
-                self.color (call, fg_color = fg, bg_color = bg)
-            self.pending_color = {}
+            self.perform_pending_changes ()
     # end def handle_status
 
     def heartbeat (self, **kw) :
@@ -766,6 +787,14 @@ class UDP_Connector :
         return None
     # end def parse_message
 
+    def perform_pending_changes (self) :
+        for call in self.pending_color :
+            fg = self.pending_color [call][0]
+            bg = self.pending_color [call][1]
+            self.color (call, fg_color = fg, bg_color = bg)
+        self.pending_color = {}
+    # end def perform_pending_changes
+
     def receive (self) :
         bytes, address = self.socket.recvfrom (4096)
         tel = WSJTX_Telegram.from_bytes (bytes)
@@ -773,7 +802,9 @@ class UDP_Connector :
             self.peer [tel.id] = address
         if not self.adr :
             self.adr = address
-        self.handle (tel)
+        # Only handle messages from preferred peer for now
+        if self.adr == address :
+            self.handle (tel)
         return tel
     # end def receive
 
