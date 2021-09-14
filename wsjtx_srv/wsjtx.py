@@ -729,24 +729,37 @@ class UDP_Connector :
         >>> t.message = 'CQ E73XXX JN94     a1'
         >>> u.parse_message (t)
         'E73XXX'
+        >>> t.message = 'E73XXX 73'
+        >>> u.parse_message (t)
+        Unknown message: E73XXX 73
+        >>> t.message = 'CQ E73XXX OI32     ? a1'
+        >>> u.parse_message (t)
+        'E73XXX'
         """
         if not tel.message :
             print ("Empty message: %s" % tel)
             return None
+        if ';' in tel.message :
+            print ("Unknown message: %s" % tel.message)
+            return None
         l = tel.message.split ()
         # Strip off marginal decode info
         if l [-1].startswith ('a') :
+            l = l [:-1]
+        if l [-1] == '?' :
             l = l [:-1]
         if l [0] in ('CQ', 'QRZ') :
             # CQ DX or similar
             if len (l) == 4 :
                 return l [2]
             return l [1]
-        if len (l) == 2 :
+        if len (l) == 2 and l [1] != '73' :
             return l [1]
         if len (l) < 2 :
             print ("Unknown message: %s" % tel.message)
             return None
+        if len (l) == 4 and l [2] == 'R' :
+            return l [1]
         if len (l) == 3 :
             return l [1]
         print ("Unknown message: %s" % tel.message)
@@ -854,8 +867,9 @@ class Worked_Before :
         >>> w.fuzzy_match_dxcc_code ('OE3RSU', only_one = True)
         '206'
         >>> w.fuzzy_match_dxcc_code ('RK3LG', only_one = True)
+        '054'
         >>> w.fuzzy_match_dxcc_code ('RK3LG')
-        ['054', '015']
+        ['054']
         """
         entities = self.fuzzy_match_dxcc (call)
         if entities :
