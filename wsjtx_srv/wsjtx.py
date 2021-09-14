@@ -2,6 +2,7 @@
 
 import sys
 import io
+import re
 import atexit
 from socket           import socket, AF_INET, SOCK_DGRAM
 from struct           import pack, unpack
@@ -713,6 +714,56 @@ class UDP_Connector :
         self.socket.sendto (tel.as_bytes (), self.adr)
     # end def heartbeat
 
+    # Some regexes for matching
+    re_report = re.compile (r'[R]?[-+][0-9]{2}')
+    re_loc    = re.compile (r'[A-Z]{2}[0-9]{2}')
+    re_call   = re.compile \
+        (r'(([A-Z])|([A-Z][A-Z0-9])|([0-9][A-Z]))[0-9][A-Z]{1,3}')
+
+    def is_locator (self, s) :
+        """ Check if s is a locator
+        >>> u = UDP_Connector (port = 4711, wbf = None)
+        >>> u.is_locator ('-2')
+        False
+        >>> u.is_locator ('JN88')
+        True
+        >>> u.is_locator ('kk77')
+        False
+        >>> u.socket.close ()
+        """
+        return bool (self.re_loc.match (s))
+    # end def is_locator
+
+    def is_report (self, s) :
+        """ Check if s is a report
+        >>> u = UDP_Connector (port = 4711, wbf = None)
+        >>> u.is_report ('-2')
+        False
+        >>> u.is_report ('-02')
+        True
+        >>> u.is_report ('+20')
+        True
+        >>> u.is_report ('R+20')
+        True
+        >>> u.socket.close ()
+        """
+        return bool (self.re_report.match (s))
+    # end def is_locator
+
+    def is_stdcall (self, s) :
+        """ Check if s is a standard callsign
+        >>> u = UDP_Connector (port = 4711, wbf = None)
+        >>> u.is_stdcall ('D1X')
+        True
+        >>> u.is_stdcall ('JN88')
+        False
+        >>> u.is_stdcall ('OE3RSU')
+        True
+        >>> u.socket.close ()
+        """
+        return bool (self.re_call.match (s))
+    # end def is_stdcall
+
     def parse_message (self, tel) :
         """ Parse the message property of a decode which includes the
             callsign(s). Note that we try to use only the second
@@ -762,6 +813,19 @@ class UDP_Connector :
         >>> t.message = 'EFHW 50W 73'
         >>> u.parse_message (t)
         Unknown message: EFHW 50W 73
+        >>> t.message = 'F1XXX D1X KN87'
+        >>> u.parse_message (t)
+        'D1X'
+        >>> t.message = 'F1XXX D1X R+03'
+        >>> u.parse_message (t)
+        'D1X'
+        >>> t.message = 'F1XXX D1X 73'
+        >>> u.parse_message (t)
+        'D1X'
+        >>> t.message = 'F1XXX D1X RR73'
+        >>> u.parse_message (t)
+        'D1X'
+        >>> u.socket.close ()
         """
         if not tel.message :
             print ("Empty message: %s" % tel)
@@ -790,8 +854,13 @@ class UDP_Connector :
             return None
         if len (l) == 4 and l [2] == 'R' :
             return l [1]
-        if len (l) == 3 and len (l [1]) > 3 :
-            return l [1]
+        if len (l) == 3 :
+            if len (l [1]) > 3 or self.is_stdcall (l [1]):
+                return l [1]
+            if self.is_locator (l [2]) :
+                return l [1]
+            if self.is_report (l [2]) :
+                return l [1]
         print ("Unknown message: %s" % tel.message)
         return None
     # end def parse_message
