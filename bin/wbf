@@ -2,6 +2,10 @@
 
 from argparse  import ArgumentParser
 from wsjtx_srv import Worked_Before
+from os        import environ
+
+adif_path = environ.get ('WBF_PATH', 
+    '/home/ralf/checkout/own/admin/afu/logs-wsjt-oe3rsu/wsjtx_log.adi')
 
 cmd = ArgumentParser ()
 cmd.add_argument \
@@ -12,8 +16,7 @@ cmd.add_argument \
 cmd.add_argument \
     ( '-a', '--adif'
     , help    = 'ADIF file to parse, default=%(default)s'
-    , default =
-        '/home/ralf/checkout/own/admin/afu/logs-wsjt-oe3rsu/wsjtx_log.adi'
+    , default = adif_path
     )
 cmd.add_argument \
     ( '-b', '--band'
