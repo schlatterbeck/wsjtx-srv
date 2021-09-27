@@ -828,6 +828,9 @@ class UDP_Connector :
         >>> t.message = 'OZ1XXX 0'
         >>> u.parse_message (t)
         Unknown message: OZ1XXX 0
+        >>> t.message = '9H1XX EA8XX IL18'
+        >>> u.parse_message (t)
+        'EA8XX'
         >>> u.socket.close ()
         """
         if not tel.message :
