@@ -825,6 +825,9 @@ class UDP_Connector :
         >>> t.message = 'F1XXX D1X RR73'
         >>> u.parse_message (t)
         'D1X'
+        >>> t.message = 'OZ1XXX 0'
+        >>> u.parse_message (t)
+        Unknown message: OZ1XXX 0
         >>> u.socket.close ()
         """
         if not tel.message :
@@ -841,20 +844,22 @@ class UDP_Connector :
             l = l [:-1]
         if l [0] in ('CQ', 'QRZ') :
             # CQ DX or similar
-            if len (l) == 4 :
+            if len (l) == 4 and len (l [2]) >= 3 :
                 return l [2]
             # CQ DX or something without locator
             if len (l) == 3 and len (l [2]) != 4 and len (l [1]) <= 4 :
-                return l [2]
-            return l [1]
-        if len (l) == 2 and l [1] != '73' :
+                if len (l [2]) >= 3 :
+                    return l [2]
+            if len (l [1]) >= 3 :
+                return l [1]
+        if len (l) == 2 and len (l [1]) >= 3 :
             return l [1]
         if len (l) < 2 :
             print ("Unknown message: %s" % tel.message)
             return None
-        if len (l) == 4 and l [2] == 'R' :
+        if len (l) == 4 and l [2] == 'R' and len (l [1]) >= 3 :
             return l [1]
-        if len (l) == 3 :
+        if len (l) == 3 and len (l [1]) >= 3 :
             if len (l [1]) > 3 or self.is_stdcall (l [1]):
                 return l [1]
             if self.is_locator (l [2]) :
