@@ -607,16 +607,17 @@ WSJTX_Telegram.type_registry [WSJTX_Configure.type] = WSJTX_Configure
 class UDP_Connector :
 
     def __init__ (self, wbf, ip = '127.0.0.1', port = 2237, id = None) :
-        self.band   = None
-        self.ip     = ip
-        self.port   = port
-        self.socket = socket (AF_INET, SOCK_DGRAM)
+        self.band    = None
+        self.ip      = ip
+        self.port    = port
+        self.socket  = socket (AF_INET, SOCK_DGRAM)
+        self.wbf     = wbf
+        self.args    = getattr (wbf, 'args', None)
+        self.peer    = {}
+        self.adr     = None
+        self.id      = id
+        self.dx_call = None
         self.socket.bind ((self.ip, self.port))
-        self.wbf  = wbf
-        self.args = getattr (wbf, 'args', None)
-        self.peer = {}
-        self.adr  = None
-        self.id   = id
         if id is None :
             self.id = WSJTX_Telegram.defaults ['id']
         self.heartbeat_seen = False
