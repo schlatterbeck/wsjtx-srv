@@ -613,6 +613,7 @@ class UDP_Connector :
         self.socket = socket (AF_INET, SOCK_DGRAM)
         self.socket.bind ((self.ip, self.port))
         self.wbf  = wbf
+        self.args = getattr (wbf, 'args', None)
         self.peer = {}
         self.adr  = None
         self.id   = id
@@ -705,6 +706,13 @@ class UDP_Connector :
             self.band = band.name
             # Invalidate all colors on band change
             self.decolor ()
+        if self.dx_call != tel.dx_call :
+            self.dx_call = dx_call
+            if self.args.set_locator_msg :
+                t = '<%s> <%s> 597373 %s' \
+                  % (self.dx_call, self.args.call, self.args.locator)
+                stel = WSJTX_Free_Text (text = t)
+                self.socket.sendto (tel.as_bytes (), self.adr)
         if not tel.decoding :
             self.perform_pending_changes ()
     # end def handle_status
@@ -1153,9 +1161,26 @@ def get_wbf () :
         , help  = 'ADIF file to parse, should be specified'
         )
     cmd.add_argument \
+        ( "-c", "--callsign"
+        , help    = 'Callsign of user of wsjtx, default=%(default)s'
+        , default = 'OE3RSU'
+        )
+    cmd.add_argument \
+        ( "-l", "--locator"
+        , help    = 'Locator of user of wsjtx, default=%(default)s'
+        , default = 'JN88dg'
+        )
+    cmd.add_argument \
         ( "-e", "--encoding"
         , help    = 'ADIF file character encoding, default=%(default)s'
         , default = 'utf-8'
+        )
+    cmd.add_argument \
+        ( "-L", "--set-locator-msg"
+        , help    = 'Set free-text message to locator message with '
+                    '<dx-call> <own-call> report locator using EU-VHF '
+                    'message'
+        , action  = 'store_true'
         )
     args = cmd.parse_args ()
     wbf = Worked_Before (args = args, adif = args.adif)
@@ -1163,8 +1188,9 @@ def get_wbf () :
 # end def get_wbf
 
 def main (get_wbf = get_wbf) :
-    wbf = get_wbf ()
-    uc  = UDP_Connector (wbf)
+    wbf  = get_wbf ()
+    uc   = UDP_Connector (wbf)
+    args = wbf.args
     weedout = \
         ( WSJTX_Decode, WSJTX_Status, WSJTX_Heartbeat, WSJTX_QSO_Logged
         , WSJTX_Logged_ADIF
