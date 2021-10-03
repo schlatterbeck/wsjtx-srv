@@ -1,19 +1,13 @@
 #!/usr/bin/python3
 
 from argparse  import ArgumentParser
-from wsjtx_srv import Worked_Before, get_defaults
+from wsjtx_srv import Worked_Before, default_cmd, get_wbf
 
-defaults = get_defaults ()
-cmd = ArgumentParser ()
+cmd = default_cmd ()
 cmd.add_argument \
     ( 'callsign'
     , help    = 'Callsign(s) to look up'
     , nargs   = '+'
-    )
-cmd.add_argument \
-    ( '-a', '--adif'
-    , help    = 'ADIF file to parse, default=%(default)s'
-    , default = defaults ['adif_path']
     )
 cmd.add_argument \
     ( '-b', '--band'
@@ -25,14 +19,9 @@ cmd.add_argument \
     , help    = 'If specified, use dxcc list for call lookup'
     , action  = 'store_true'
     )
-cmd.add_argument \
-    ( '-e', '--encoding'
-    , help    = 'Encoding for ADIF file to parse, default=%(default)s'
-    , default = 'utf-8'
-    )
-args = cmd.parse_args ()
 
-wbf = Worked_Before (args.adif, args)
+wbf  = get_wbf (cmd)
+args = wbf.args
 for callsign in args.callsign :
     print (callsign, end = ': ')
     entities = wbf.fuzzy_match_dxcc (callsign, use_dxcc = args.use_dxcc)

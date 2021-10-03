@@ -12,6 +12,7 @@ from rsclib.autosuper import autosuper
 from afu.adif         import ADIF
 from afu.cty          import CTY_DXCC
 from afu.bandplan     import bandplan_austria
+from afu.dbimport     import ADIF_Uploader, urlencode
 
 class Protocol_Element :
     """ A single protocol element to be parsed from binary format or
@@ -939,7 +940,7 @@ class WBF (autosuper) :
 
 # end class WBF
 
-class Worked_Before :
+class Worked_Before (autosuper) :
     """ This parses an ADIF log file and extracts worked-before info
         This can then be used by the UDP_Connector to color calls by
         parsing calls from incoming Decode packets.
@@ -1158,25 +1159,98 @@ class Worked_Before :
 
 # end class Worked_Before
 
+class QSO_Database_Worked_Before (Worked_Before) :
+    """ Get DXCC data from QSO database
+        This only gets a dxcc if the qso is *confirmed* in LOTW.
+    """
+
+    def __init__ \
+        (self, url, username, adif = None, args = None, password = None, **kw) :
+        d = dict \
+            ( url      = url
+            , username = username
+            , password = password
+            , dry_run  = True
+            )
+        if 'verbose' in kw :
+            d.update (verbose = kw ['verbose'])
+        self.au = ADIF_Uploader (** d)
+        self.__super.__init__ (adif, args, **kw)
+        self.add_dxccs ()
+    # end def __init__
+
+    def add_dxccs (self) :
+        d = dict (qsl_type  = 'LOTW')
+        d ['@fields'] = 'qso.dxcc_entity.code,qso.band.name'
+        d ['@sort']   = 'qso.band.name'
+        qsls = self.au.get ('qsl?' + urlencode (d))['data']['collection']
+        for qsl in qsls :
+            band = qsl ['qso.band.name']
+            dxcc_code = qsl ['qso.dxcc_entity.code']
+            if band not in self.dxcc_info :
+                self.dxcc_info [band] = WBF (band)
+            self.dxcc_info [band]. add_item (dxcc_code)
+            self.dxcc_info ['ALL'].add_item (dxcc_code)
+    # end def add_dxccs
+
+    def add_dxcc_entry (self, rec) :
+        """ Do nothing here: We update the DXCC map in add_dxccs
+            and we do *not* mark newly-worked calls in the DXCC map:
+            We only want LOTW-confirmed entries.
+        """
+        return
+    # end def add_dxcc_entry
+
+# end class QSO_Database_Worked_Before
+
 def get_defaults () :
-    home = os.environ.get ('HOME', '')
-    adif_path = os.environ.get ('WBF_PATH',
-        os.path.join (home, '.local/share/WSJTX'))
-    call = os.environ.get ('WBF_CALL', 'OE3RSU')
-    loc  = os.environ.get ('WBF_LOC',  'JN88dg')
-    return dict (adif_path = adif_path, call = call, loc = loc)
+    home  = os.environ.get ('HOME', '')
+    d     = {}
+    d.update (adif_path = os.environ.get 
+        ('WBF_PATH', os.path.join (home, '.local/share/WSJTX')))
+    d.update (call  = os.environ.get ('WBF_CALL', 'OE3RSU'))
+    d.update (loc   = os.environ.get ('WBF_LOC',  'JN88dg'))
+    d.update (user  = os.environ.get ('WBF_USER',  None))
+    d.update (dburl = os.environ.get ('WBF_DBURL', None))
+    return d
 # end def get_defaults
+
+def default_cmd (defaults = None) :
+    if defaults is None :
+        defaults = get_defaults ()
+    cmd = ArgumentParser ()
+    cmd.add_argument \
+        ( '-a', '--adif'
+        , help    = 'ADIF file to parse, default=%(default)s'
+        , default = defaults ['adif_path']
+        )
+    cmd.add_argument \
+        ( "-e", "--encoding"
+        , help    = 'ADIF file character encoding, default=%(default)s'
+        , default = 'utf-8'
+        )
+    cmd.add_argument \
+        ( "-p", "--password"
+        , help    = "Password, better use .netrc"
+        )
+    cmd.add_argument \
+        ( "-U", "--dburl"
+        , help    = 'URL of qso tracker, default=%(default)s'
+        , default = defaults ['dburl']
+        )
+    cmd.add_argument \
+        ( "-u", "--dbuser"
+        , help    = 'User of qso tracker, default=%(default)s'
+        , default = defaults ['user']
+        )
+    return cmd
+# end def default_cmd
 
 def get_wbf (cmd = None, defaults = None) :
     if defaults is None :
         defaults = get_defaults ()
     if cmd is None :
-        cmd = ArgumentParser ()
-        cmd.add_argument \
-            ( '-a', '--adif'
-            , help    = 'ADIF file to parse, default=%(default)s'
-            , default = defaults ['adif_path']
-            )
+        cmd = default_cmd (defaults)
         cmd.add_argument \
             ( "-c", "--callsign"
             , help    = 'Callsign of user of wsjtx, default=%(default)s'
@@ -1188,11 +1262,6 @@ def get_wbf (cmd = None, defaults = None) :
             , default = defaults ['loc']
             )
         cmd.add_argument \
-            ( "-e", "--encoding"
-            , help    = 'ADIF file character encoding, default=%(default)s'
-            , default = 'utf-8'
-            )
-        cmd.add_argument \
             ( "-L", "--set-locator-msg"
             , help    = 'Set free-text message to locator message with '
                         '<dx-call> <own-call> report locator using EU-VHF '
@@ -1200,7 +1269,16 @@ def get_wbf (cmd = None, defaults = None) :
             , action  = 'store_true'
             )
     args = cmd.parse_args ()
-    wbf = Worked_Before (args = args, adif = args.adif)
+    if args.dburl and args.dbuser :
+        wbf = QSO_Database_Worked_Before \
+            ( url      = args.dburl
+            , username = args.dbuser
+            , password = args.password
+            , adif     = args.adif
+            , args     = args
+            )
+    else :
+        wbf = Worked_Before (args = args, adif = args.adif)
     return wbf
 # end def get_wbf
 
@@ -1228,7 +1306,8 @@ __all__ = [ "main", "QDateTime", "QColor", "color_red", "color_green"
           , "WSJTX_Free_Text", "WSJTX_WSPR_Decode", "WSJTX_Location"
           , "WSJTX_Logged_ADIF", "WSJTX_Highlight_Call"
           , "WSJTX_Switch_Config", "WSJTX_Configure", "UDP_Connector"
-          , "WBF", "Worked_Before", "get_defaults"
+          , "WBF", "Worked_Before", "get_defaults", "default_cmd"
+          , "get_wbf"
           ]
 
 if __name__ == '__main__' :
