@@ -1165,7 +1165,12 @@ class QSO_Database_Worked_Before (Worked_Before) :
     """
 
     def __init__ \
-        (self, url, username, adif = None, args = None, password = None, **kw) :
+        ( self, url, username, locator
+        , adif = None
+        , args = None
+        , password = None
+        , **kw
+        ) :
         d = dict \
             ( url      = url
             , username = username
@@ -1176,11 +1181,21 @@ class QSO_Database_Worked_Before (Worked_Before) :
             d.update (verbose = kw ['verbose'])
         self.au = ADIF_Uploader (** d)
         self.__super.__init__ (adif, args, **kw)
+        self.locator = locator
         self.add_dxccs ()
     # end def __init__
 
     def add_dxccs (self) :
-        d = dict (qsl_type  = 'LOTW')
+        # determine ham_call from locator
+        d  = dict (gridsquare = self.locator)
+        hc = self.au.get ('ham_call?' + urlencode (d))['data']['collection']
+        if len (hc) != 1 :
+            raise ValueError \
+                ("Ham Call with Loc=%s: Got %d entries"
+                % (self.locator, len (hc))
+                )
+        d = dict (qsl_type = 'LOTW')
+        d ['qso.owner'] = hc [0]['id']
         d ['@fields'] = 'qso.dxcc_entity.code,qso.band.name'
         d ['@sort']   = 'qso.band.name'
         qsls = self.au.get ('qsl?' + urlencode (d))['data']['collection']
@@ -1230,6 +1245,11 @@ def default_cmd (defaults = None) :
         , default = 'utf-8'
         )
     cmd.add_argument \
+        ( "-l", "--locator"
+        , help    = 'Locator of user of wsjtx, default=%(default)s'
+        , default = defaults ['loc']
+        )
+    cmd.add_argument \
         ( "-p", "--password"
         , help    = "Password, better use .netrc"
         )
@@ -1257,11 +1277,6 @@ def get_wbf (cmd = None, defaults = None) :
             , default = defaults ['call']
             )
         cmd.add_argument \
-            ( "-l", "--locator"
-            , help    = 'Locator of user of wsjtx, default=%(default)s'
-            , default = defaults ['loc']
-            )
-        cmd.add_argument \
             ( "-L", "--set-locator-msg"
             , help    = 'Set free-text message to locator message with '
                         '<dx-call> <own-call> report locator using EU-VHF '
@@ -1274,6 +1289,7 @@ def get_wbf (cmd = None, defaults = None) :
             ( url      = args.dburl
             , username = args.dbuser
             , password = args.password
+            , locator  = args.locator
             , adif     = args.adif
             , args     = args
             )
