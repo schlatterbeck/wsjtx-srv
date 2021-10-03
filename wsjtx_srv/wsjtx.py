@@ -3,6 +3,7 @@
 import sys
 import io
 import re
+import os
 import atexit
 from socket           import socket, AF_INET, SOCK_DGRAM
 from struct           import pack, unpack
@@ -708,12 +709,13 @@ class UDP_Connector :
             # Invalidate all colors on band change
             self.decolor ()
         if self.dx_call != tel.dx_call :
-            self.dx_call = dx_call
+            self.dx_call = tel.dx_call
             if self.args.set_locator_msg :
                 t = '<%s> <%s> 597373 %s' \
-                  % (self.dx_call, self.args.call, self.args.locator)
+                  % (self.dx_call, self.args.callsign, self.args.locator)
                 stel = WSJTX_Free_Text (text = t)
-                self.socket.sendto (tel.as_bytes (), self.adr)
+                self.socket.sendto (stel.as_bytes (), self.adr)
+                print ('Set free text to "%s"' % t)
         if not tel.decoding :
             self.perform_pending_changes ()
     # end def handle_status
@@ -963,7 +965,8 @@ class Worked_Before :
         for k in kw :
             if k.startswith ('color_') :
                 setattr (self, k, kw [k])
-        self.cty_dxcc = CTY_DXCC ()
+        self.args      = args
+        self.cty_dxcc  = CTY_DXCC ()
         self.band_info = {}
         self.dxcc_info = {} # by dxcc number
         self.band_info ['ALL'] = WBF ('ALL')
@@ -1155,34 +1158,47 @@ class Worked_Before :
 
 # end class Worked_Before
 
-def get_wbf () :
-    cmd = ArgumentParser ()
-    cmd.add_argument \
-        ( "adif"
-        , help  = 'ADIF file to parse, should be specified'
-        )
-    cmd.add_argument \
-        ( "-c", "--callsign"
-        , help    = 'Callsign of user of wsjtx, default=%(default)s'
-        , default = 'OE3RSU'
-        )
-    cmd.add_argument \
-        ( "-l", "--locator"
-        , help    = 'Locator of user of wsjtx, default=%(default)s'
-        , default = 'JN88dg'
-        )
-    cmd.add_argument \
-        ( "-e", "--encoding"
-        , help    = 'ADIF file character encoding, default=%(default)s'
-        , default = 'utf-8'
-        )
-    cmd.add_argument \
-        ( "-L", "--set-locator-msg"
-        , help    = 'Set free-text message to locator message with '
-                    '<dx-call> <own-call> report locator using EU-VHF '
-                    'message'
-        , action  = 'store_true'
-        )
+def get_defaults () :
+    home = os.environ.get ('HOME', '')
+    adif_path = os.environ.get ('WBF_PATH',
+        os.path.join (home, '.local/share/WSJTX'))
+    call = os.environ.get ('WBF_CALL', 'OE3RSU')
+    loc  = os.environ.get ('WBF_LOC',  'JN88dg')
+    return dict (adif_path = adif_path, call = call, loc = loc)
+# end def get_defaults
+
+def get_wbf (cmd = None, defaults = None) :
+    if defaults is None :
+        defaults = get_defaults ()
+    if cmd is None :
+        cmd = ArgumentParser ()
+        cmd.add_argument \
+            ( '-a', '--adif'
+            , help    = 'ADIF file to parse, default=%(default)s'
+            , default = defaults ['adif_path']
+            )
+        cmd.add_argument \
+            ( "-c", "--callsign"
+            , help    = 'Callsign of user of wsjtx, default=%(default)s'
+            , default = defaults ['call']
+            )
+        cmd.add_argument \
+            ( "-l", "--locator"
+            , help    = 'Locator of user of wsjtx, default=%(default)s'
+            , default = defaults ['loc']
+            )
+        cmd.add_argument \
+            ( "-e", "--encoding"
+            , help    = 'ADIF file character encoding, default=%(default)s'
+            , default = 'utf-8'
+            )
+        cmd.add_argument \
+            ( "-L", "--set-locator-msg"
+            , help    = 'Set free-text message to locator message with '
+                        '<dx-call> <own-call> report locator using EU-VHF '
+                        'message'
+            , action  = 'store_true'
+            )
     args = cmd.parse_args ()
     wbf = Worked_Before (args = args, adif = args.adif)
     return wbf
@@ -1212,7 +1228,7 @@ __all__ = [ "main", "QDateTime", "QColor", "color_red", "color_green"
           , "WSJTX_Free_Text", "WSJTX_WSPR_Decode", "WSJTX_Location"
           , "WSJTX_Logged_ADIF", "WSJTX_Highlight_Call"
           , "WSJTX_Switch_Config", "WSJTX_Configure", "UDP_Connector"
-          , "WBF", "Worked_Before"
+          , "WBF", "Worked_Before", "get_defaults"
           ]
 
 if __name__ == '__main__' :
