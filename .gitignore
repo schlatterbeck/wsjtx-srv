@@ -3,6 +3,8 @@ build
 dist
 MANIFEST
 README.html
+announce_pypi
+upload_pypi
 *.pyc
 *.pyo
 *.pcap
