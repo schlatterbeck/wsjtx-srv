@@ -5,14 +5,14 @@ import io
 import re
 import os
 import atexit
-from socket           import socket, AF_INET, SOCK_DGRAM
-from struct           import pack, unpack
-from argparse         import ArgumentParser
-from rsclib.autosuper import autosuper
-from afu.adif         import ADIF
-from afu.cty          import CTY_DXCC
-from afu.bandplan     import bandplan_austria
-from afu.dbimport     import ADIF_Uploader, urlencode
+from socket            import socket, AF_INET, SOCK_DGRAM
+from struct            import pack, unpack
+from argparse          import ArgumentParser
+from rsclib.autosuper  import autosuper
+from hamradio.adif     import ADIF
+from hamradio.cty      import CTY_DXCC
+from hamradio.bandplan import bandplan_austria
+from hamradio.dbimport import ADIF_Uploader, urlencode
 
 class Protocol_Element :
     """ A single protocol element to be parsed from binary format or

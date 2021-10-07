@@ -40,7 +40,6 @@ with open ('README.rst') as f :
         description.append (line)
 
 license     = 'BSD License'
-#download    = FIXME
 rq          = '>=3.7'
 setup \
     ( name             = "wsjtx_srv"
@@ -50,9 +49,10 @@ setup \
     , license          = license
     , author           = "Ralf Schlatterbeck"
     , author_email     = "rsc@runtux.com"
+    , install_requires = ['<rsclib>', '<hamradio>']
     , packages         = ['wsjtx_srv']
     , platforms        = 'Any'
-    #, url              = "http://rsclib.sourceforge.net/"
+    , url              = "https://github.com/schlatterbeck/wsjtx-srv"
     , scripts          = ['bin/wsjtx-srv', 'bin/wbf']
     , python_requires  = rq
     , classifiers      = \
