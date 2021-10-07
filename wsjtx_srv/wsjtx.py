@@ -1222,7 +1222,7 @@ def get_defaults () :
     home  = os.environ.get ('HOME', '')
     d     = {}
     d.update (adif_path = os.environ.get 
-        ('WBF_PATH', os.path.join (home, '.local/share/WSJTX')))
+        ('WBF_PATH', os.path.join (home, '.local/share/WSJTX/wsjtx_log.adi')))
     d.update (call  = os.environ.get ('WBF_CALL', 'OE3RSU'))
     d.update (loc   = os.environ.get ('WBF_LOC',  'JN88dg'))
     d.update (user  = os.environ.get ('WBF_USER',  None))
