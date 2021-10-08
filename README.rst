@@ -7,15 +7,16 @@ This implements a simple UDP server that binds to the WSJT-X_ UDP message
 protocol port. It also provides everything for parsing and/or generating
 WSJT-X_ telegrams.
 
-By default calling `bin/wsjtx-srv` will provide a simple server that
-colors all callsigns given on the command line. It uses the ADIF logfile
-from WSJT-X_ with a default location. You can specify the correct location
-for your installation either via command-line (call `wsjtx-srv` with the
-`--help` option) or in the environment variable `WBF_PATH`. It has also
-an implementation that looks up DXCC-entities in my log database, but
-only those that have been confirmed via LOTW.
+By default calling ``wsjtx-srv`` will provide a simple server that
+colors all callsigns not in the ADIF file for the current band. It uses
+the ADIF logfile from WSJT-X_ with a default path to that file. You can
+specify the correct path for your installation either via
+command-line (call ``wsjtx-srv`` with the ``--help`` option) or in the
+environment variable ``WBF_PATH``. It has also an implementation that
+looks up DXCC-entities in my log database, but only those that have been
+confirmed via LOTW.
 
-The implementation of wsjtx-srv should give a rough idea of how to use
+The implementation of ``wsjtx-srv`` should give a rough idea of how to use
 this in your own projects.
 
 There is a companion-program ``wbf`` standing for *worked before* that
