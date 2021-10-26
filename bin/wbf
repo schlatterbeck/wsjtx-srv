@@ -15,7 +15,7 @@ cmd.add_argument \
     , default = '40m'
     )
 cmd.add_argument \
-    ( '-d', '--use-dxcc'
+    ( '-D', '--use-dxcc'
     , help    = 'If specified, use dxcc list for call lookup'
     , action  = 'store_true'
     )

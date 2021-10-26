@@ -229,18 +229,28 @@ class QColor (Protocol_Element) :
     __repr__ = __str__
 
 # end class QColor
-color_red   = QColor (red = QColor.cmax)
-color_green = QColor (green = QColor.cmax)
-color_blue  = QColor (blue = QColor.cmax)
-color_white = QColor (QColor.cmax, QColor.cmax, QColor.cmax)
-color_black = QColor ()
-color_cyan  = QColor (0, 0xFFFF, 0xFFFF)
-color_cyan1 = QColor (0x9999, 0xFFFF, 0xFFFF)
-color_pink  = QColor (0xFFFF, 0, 0xFFFF)
-color_pink1 = QColor (0xFFFF, 0xAAAA, 0xFFFF)
+color_red      = QColor (red = QColor.cmax)
+color_green    = QColor (green = QColor.cmax)
+color_blue     = QColor (blue = QColor.cmax)
+color_white    = QColor (QColor.cmax, QColor.cmax, QColor.cmax)
+color_black    = QColor ()
+color_cyan     = QColor (0, 0xFFFF, 0xFFFF)
+color_cyan1    = QColor (0x9999, 0xFFFF, 0xFFFF)
+color_pink     = QColor (0xFFFF, 0, 0xFFFF)
+color_pink1    = QColor (0xFFFF, 0xAAAA, 0xFFFF)
+color_orange   = QColor (0xFFFF, 0xA0A0, 0x0000)
 
-color_invalid = QColor (spec = QColor.spec_invalid)
-color_tuple_invalid = (color_invalid, color_invalid)
+color_invalid  = QColor (spec = QColor.spec_invalid)
+ctuple_invalid = (color_invalid, color_invalid)
+
+# defaults (fg color, bg color)
+ctuple_wbf           = ctuple_invalid
+ctuple_dxcc          = (color_black,   color_pink)
+ctuple_dxcc_band     = (color_black,   color_pink1)
+ctuple_new_call      = (color_black,   color_cyan)
+ctuple_new_call_band = (color_black,   color_cyan1)
+ctuple_highlight     = (color_black,   color_orange)
+
 
 # Shortcuts for used data types, also for consistency
 quint8     = ('!B', 1)
@@ -646,8 +656,8 @@ class UDP_Connector :
         """
         for call in self.color_by_call :
             # Can save some time not considering uncolored calls
-            if self.color_by_call [call] != color_tuple_invalid :
-                self.pending_color [call] = color_tuple_invalid
+            if self.color_by_call [call] != ctuple_invalid :
+                self.pending_color [call] = ctuple_invalid
         self.color_by_call = {}
     # end def decolor
 
@@ -954,13 +964,6 @@ class Worked_Before (autosuper) :
         we use the match for determining worked-before status.
     """
 
-    # defaults (fg color, bg color)
-    color_wbf           = color_tuple_invalid
-    color_dxcc          = (color_black,   color_pink)
-    color_dxcc_band     = (color_black,   color_pink1)
-    color_new_call      = (color_black,   color_cyan)
-    color_new_call_band = (color_black,   color_cyan1)
-
     def __init__ (self, adif = None, args = None, **kw) :
         # Color override
         for k in kw :
@@ -1110,6 +1113,9 @@ class Worked_Before (autosuper) :
             r2 = r2 and self.dxcc_info [band].lookup (dxcc)
         # Matched for *all* dxccs; not new dxcc on this (and any) band
         if r2 :
+            for dxcc in dxccs :
+                if dxcc in self.args.highlight_dxcc :
+                    return 'highlight'
             return self.lookup_new_call (call)
         r3 = 1
         for dxcc in dxccs :
@@ -1121,11 +1127,12 @@ class Worked_Before (autosuper) :
     # end def lookup
 
     color_lookup_table = dict \
-        (( ('new_dxcc',      ('New DXCC',         'color_dxcc'))
-        ,  ('new_dxcc_band', ('New DXCC on Band', 'color_dxcc_band'))
-        ,  ('new_call',      ('New Call',         'color_new_call'))
-        ,  ('new_call_band', ('New Call on Band', 'color_new_call_band'))
-        ,  ('wbf',           ('Worked before',    'color_wbf'))
+        (( ('new_dxcc',      ('New DXCC',         'ctuple_dxcc'))
+        ,  ('new_dxcc_band', ('New DXCC on Band', 'ctuple_dxcc_band'))
+        ,  ('new_call',      ('New Call',         'ctuple_new_call'))
+        ,  ('new_call_band', ('New Call on Band', 'ctuple_new_call_band'))
+        ,  ('wbf',           ('Worked before',    'ctuple_wbf'))
+        ,  ('highlight',     ('Highlight',        'ctuple_highlight'))
         ))
 
     def lookup_verbose (self, band, call) :
@@ -1223,10 +1230,13 @@ def get_defaults () :
     d     = {}
     d.update (adif_path = os.environ.get 
         ('WBF_PATH', os.path.join (home, '.local/share/WSJTX/wsjtx_log.adi')))
-    d.update (call  = os.environ.get ('WBF_CALL', 'OE3RSU'))
-    d.update (loc   = os.environ.get ('WBF_LOC',  'JN88dg'))
-    d.update (user  = os.environ.get ('WBF_USER',  None))
-    d.update (dburl = os.environ.get ('WBF_DBURL', None))
+    d.update (call  = os.environ.get ('WBF_CALL',      'OE3RSU'))
+    d.update (loc   = os.environ.get ('WBF_LOC',       'JN88dg'))
+    d.update (user  = os.environ.get ('WBF_USER',      None))
+    d.update (dburl = os.environ.get ('WBF_DBURL',     None))
+    hl = [x.strip () for x in os.environ.get ('WBF_HIGHLIGHT', '').split (',')]
+    if hl :
+        d.update (highlight = hl)
     return d
 # end def get_defaults
 
@@ -1238,6 +1248,13 @@ def default_cmd (defaults = None) :
         ( '-a', '--adif'
         , help    = 'ADIF file to parse, default=%(default)s'
         , default = defaults ['adif_path']
+        )
+    cmd.add_argument \
+        ( "-d", "--highlight-dxcc"
+        , help    = 'DXCC to highlight even if only new call on band'
+                    ' may be specified multiple times'
+        , default = defaults ['highlight']
+        , action  = 'append'
         )
     cmd.add_argument \
         ( "-e", "--encoding"
@@ -1315,7 +1332,7 @@ def main (get_wbf = get_wbf) :
 __all__ = [ "main", "QDateTime", "QColor", "color_red", "color_green"
           , "color_blue", "color_white", "color_black"
           , "color_cyan", "color_cyan1", "color_pink", "color_pink1"
-          , "color_tuple_invalid"
+          , "ctuple_invalid"
           , "WSJTX_Heartbeat", "WSJTX_Status", "WSJTX_Decode"
           , "WSJTX_Clear", "WSJTX_Reply", "WSJTX_QSO_Logged"
           , "WSJTX_Close", "WSJTX_Replay", "WSJTX_Halt_TX"
