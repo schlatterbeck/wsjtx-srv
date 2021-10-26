@@ -963,11 +963,18 @@ class Worked_Before (autosuper) :
         match more than one entity. Only if there is an exact match do
         we use the match for determining worked-before status.
     """
+    # Default color tuples
+    ctuple_wbf           = ctuple_invalid
+    ctuple_dxcc          = ctuple_dxcc
+    ctuple_dxcc_band     = ctuple_dxcc_band
+    ctuple_new_call      = ctuple_new_call
+    ctuple_new_call_band = ctuple_new_call_band
+    ctuple_highlight     = ctuple_highlight
 
     def __init__ (self, adif = None, args = None, **kw) :
         # Color override
         for k in kw :
-            if k.startswith ('color_') :
+            if k.startswith ('ctuple_') :
                 setattr (self, k, kw [k])
         self.args      = args
         self.cty_dxcc  = CTY_DXCC ()
