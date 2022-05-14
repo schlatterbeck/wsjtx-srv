@@ -31,4 +31,4 @@ clean:
 	      README.tex announce_pypi
 	rm -rf dist build upload upload_homepage ReleaseNotes.txt
 
-include $(RELEASETOOLS)/Makefile-sf
+include $(RELEASETOOLS)/Makefile-pyrelease

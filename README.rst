@@ -28,6 +28,8 @@ before status.
 Changes
 -------
 
+Version 0.2: Fix setup.py install_requires
+
 Version 0.1: Initial implementation
 
 - Implement serialization and deserialization of WSJT-X_ telegrams and a
