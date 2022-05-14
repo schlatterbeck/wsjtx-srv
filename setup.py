@@ -32,7 +32,13 @@ try :
     from wsjtx_srv.Version import VERSION
 except :
     VERSION = None
+from warnings       import filterwarnings
 from distutils.core import setup, Extension
+
+filterwarnings \
+    ( "ignore"
+    , "Unknown distribution option: 'install_requires'"
+    )
 
 description = []
 with open ('README.rst') as f :
@@ -49,7 +55,7 @@ setup \
     , license          = license
     , author           = "Ralf Schlatterbeck"
     , author_email     = "rsc@runtux.com"
-    , install_requires = ['<rsclib>', '<hamradio>']
+    , install_requires = ['rsclib', 'hamradio']
     , packages         = ['wsjtx_srv']
     , platforms        = 'Any'
     , url              = "https://github.com/schlatterbeck/wsjtx-srv"
