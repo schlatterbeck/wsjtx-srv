@@ -1117,6 +1117,8 @@ class Worked_Before (autosuper) :
             return 'new_dxcc'
         r2 = 1
         for dxcc in dxccs :
+            if band not in self.dxcc_info:
+                self.dxcc_info [band] = WBF (band)
             r2 = r2 and self.dxcc_info [band].lookup (dxcc)
         # Matched for *all* dxccs; not new dxcc on this (and any) band
         if r2 :
