@@ -332,6 +332,12 @@ class WSJTX_Telegram (autosuper) :
         b  = bytes
         kw = {}
         for name, (format, length) in cls.format :
+            # Due to compatibility reasons new message fields are added to
+            # the end of the messsage. The buffer is empty when the message
+            # is older format and a field is missing.
+            if (len(b) == 0):
+                kw[name] = None
+                continue
             if isinstance (format, type ('')) :
                 kw [name] = unpack (format, b [:length]) [0]
                 b = b [length:]
