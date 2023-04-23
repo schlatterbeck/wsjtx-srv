@@ -28,6 +28,12 @@ before status.
 Changes
 -------
 
+Version 0.3: Small fixes
+
+- Compatibility with older protocol versions, thanks to Sampo Savolainen
+  for the patch
+- Fix band lookup if no QSO on band
+
 Version 0.2: Fix setup.py install_requires
 
 Version 0.1: Initial implementation
