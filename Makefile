@@ -22,9 +22,6 @@ all: $(VERSION)
 
 $(VERSION): $(SRC)
 
-dist: all
-	python setup.py sdist --formats=gztar,zip
-
 clean:
 	rm -f MANIFEST wsjtx_srv/Version.py notes changes default.css    \
 	      README.html README.aux README.dvi README.log README.out \

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (C) 2021 Dr. Ralf Schlatterbeck Open Source Consulting.
+# Copyright (C) 2021-23 Dr. Ralf Schlatterbeck Open Source Consulting.
 # Reichergasse 131, A-3411 Weidling.
 # Web: http://www.runtux.com Email: office@runtux.com
 # All rights reserved
@@ -28,17 +28,11 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # ****************************************************************************
 
+from setuptools import setup
 try :
     from wsjtx_srv.Version import VERSION
 except :
     VERSION = None
-from warnings       import filterwarnings
-from distutils.core import setup, Extension
-
-filterwarnings \
-    ( "ignore"
-    , "Unknown distribution option: 'install_requires'"
-    )
 
 description = []
 with open ('README.rst') as f :
@@ -52,6 +46,7 @@ setup \
     , version          = VERSION
     , description      = "Library implementation of WSJTX companion program"
     , long_description = ''.join (description)
+    , long_description_content_type = 'text/x-rst'
     , license          = license
     , author           = "Ralf Schlatterbeck"
     , author_email     = "rsc@runtux.com"
