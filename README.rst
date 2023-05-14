@@ -28,6 +28,10 @@ before status.
 Changes
 -------
 
+Version 0.4: Move to setuptools
+
+- Seems previous releases had versioning problems with pypi
+
 Version 0.3: Small fixes
 
 - Compatibility with older protocol versions, thanks to Sampo Savolainen
