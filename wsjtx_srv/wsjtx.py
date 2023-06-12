@@ -1379,6 +1379,39 @@ def main (get_wbf = get_wbf):
             print (tel)
 # end def main
 
+def wbf (argv = None):
+    cmd = default_cmd ()
+    cmd.add_argument \
+        ( 'callsign'
+        , help    = 'Callsign(s) to look up'
+        , nargs   = '+'
+        )
+    cmd.add_argument \
+        ( '-b', '--band'
+        , help    = 'Band to do lookup for, default=%(default)s'
+        , default = '40m'
+        )
+    cmd.add_argument \
+        ( '-D', '--use-dxcc'
+        , help    = 'If specified, use dxcc list for call lookup'
+        , action  = 'store_true'
+        )
+
+    wbf  = get_wbf (cmd)
+    args = wbf.args
+    for callsign in args.callsign :
+        print (callsign, end = ': ')
+        entities = wbf.fuzzy_match_dxcc (callsign, use_dxcc = args.use_dxcc)
+        if entities :
+            print \
+                ( "Entities: %s"
+                % ', '.join ('%s (%s)' % (e.name, e.code) for e in entities)
+                )
+        else :
+            print ("No DXCC Entities found for this call")
+        print ('     WBF-Status: %s' % wbf.lookup_verbose (args.band, callsign))
+# end def wbf
+
 __all__ = [ "main", "QDateTime", "QColor", "color_red", "color_green"
           , "color_blue", "color_white", "color_black"
           , "color_cyan", "color_cyan1", "color_pink", "color_pink1"

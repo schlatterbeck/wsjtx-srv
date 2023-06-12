@@ -54,7 +54,12 @@ setup \
     , packages         = ['wsjtx_srv']
     , platforms        = 'Any'
     , url              = "https://github.com/schlatterbeck/wsjtx-srv"
-    , scripts          = ['bin/wsjtx-srv', 'bin/wbf']
+    , entry_points     = dict
+        ( console_scripts =
+            [ 'wsjtx-srv=wsjtx_srv.wsjtx:main'
+            , 'wbf=wsjtx_srv.wsjtx:wbf'
+            ]
+        )
     , python_requires  = rq
     , classifiers      = \
         [ 'Development Status :: 5 - Production/Stable'
@@ -65,5 +70,6 @@ setup \
         , 'Programming Language :: Python :: 3.7'
         , 'Programming Language :: Python :: 3.8'
         , 'Programming Language :: Python :: 3.9'
+        , 'Programming Language :: Python :: 3.10'
         ]
     )
