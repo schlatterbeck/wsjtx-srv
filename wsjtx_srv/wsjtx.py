@@ -7,7 +7,7 @@ import os
 import atexit
 from socket            import socket, AF_INET, SOCK_DGRAM
 from struct            import pack, unpack
-from argparse          import ArgumentParser
+from argparse          import ArgumentParser, Action as Argparse_Action
 from rsclib.autosuper  import autosuper
 from hamradio.adif     import ADIF
 from hamradio.cty      import CTY_DXCC
@@ -936,6 +936,9 @@ class UDP_Connector:
 
 class WBF (autosuper):
     """ Worked before info
+        This applies to the given band.
+        It is initialized with all calls for this band, in the end
+        self.wbf contains counters for all dxccs we have seen.
     """
 
     def __init__ (self, band, always_match = False):
@@ -944,8 +947,10 @@ class WBF (autosuper):
         self.always_match = always_match
     # end def __init__
 
-    def add_item (self, item, record = 1):
-        self.wbf [item] = record
+    def add_item (self, item):
+        if item not in self.wbf:
+            self.wbf [item] = 0
+        self.wbf [item] += 1
     # end def add_item
 
     def lookup (self, item):
@@ -984,7 +989,7 @@ class Worked_Before (autosuper):
                 setattr (self, k, kw [k])
         self.args      = args
         self.cty_dxcc  = CTY_DXCC ()
-        self.band_info = {}
+        self.band_info = {} # by callsign
         self.dxcc_info = {} # by dxcc number
         self.band_info ['ALL'] = WBF ('ALL')
         self.dxcc_info ['ALL'] = WBF ('ALL')
@@ -1028,8 +1033,8 @@ class Worked_Before (autosuper):
     def add_call_entry (self, rec):
         if rec.band not in self.band_info:
             self.band_info [rec.band] = WBF (rec.band)
-        self.band_info [rec.band].add_item (rec.call, rec)
-        self.band_info ['ALL'].   add_item (rec.call, rec)
+        self.band_info [rec.band].add_item (rec.call)
+        self.band_info ['ALL'].   add_item (rec.call)
     # end def add_call_entry
 
     def add_dxcc_entry (self, rec):
@@ -1122,15 +1127,22 @@ class Worked_Before (autosuper):
         if not dxccs:
             return 'new_dxcc'
         r2 = 1
+        m  = 0
         for dxcc in dxccs:
             if band not in self.dxcc_info:
                 self.dxcc_info [band] = WBF (band)
             r2 = r2 and self.dxcc_info [band].lookup (dxcc)
+            if r2 and self.dxcc_info [band].lookup (dxcc) > m:
+                m = self.dxcc_info [band].lookup (dxcc)
         # Matched for *all* dxccs; not new dxcc on this (and any) band
         if r2:
             for dxcc in dxccs:
                 if dxcc in self.args.highlight_dxcc:
-                    return 'highlight'
+                    if not self.args.highlight_dxcc [dxcc]:
+                        return 'highlight'
+                    else:
+                        if self.args.highlight_dxcc [dxcc] > m:
+                            return 'highlight'
             return self.lookup_new_call (call)
         r3 = 1
         for dxcc in dxccs:
@@ -1251,13 +1263,33 @@ def get_defaults ():
     d.update (dburl = os.environ.get ('WBF_DBURL',     None))
     hl = [x.strip () for x in os.environ.get ('WBF_HIGHLIGHT', '').split (',')]
     if hl:
-        d.update (highlight = hl)
+        hd = {}
+        for h in hl:
+            try:
+                k, v = h.split (':')
+                hd [k] = int (v)
+            except ValueError:
+                hd [h] = None
+        d.update (highlight = hd)
     return d
 # end def get_defaults
 
 def default_cmd (defaults = None):
     if defaults is None:
         defaults = get_defaults ()
+
+    class Dict_Append (Argparse_Action):
+        def __call__ (self, parser, namespace, values, option_string = None):
+            import pdb; pdb.set_trace ()
+            dst = getattr (namespace, self.dest)
+            try:
+                k, v = values.split (':')
+                dst.update (k, int (v))
+            except ValueError:
+                dst.update (values, None)
+        # end def __call__
+    # end class Dict_Append
+
     cmd = ArgumentParser ()
     cmd.add_argument \
         ( '-a', '--adif'
@@ -1267,9 +1299,12 @@ def default_cmd (defaults = None):
     cmd.add_argument \
         ( "-d", "--highlight-dxcc"
         , help    = 'DXCC to highlight even if only new call on band'
-                    ' may be specified multiple times'
+                    ' may be specified multiple times, optionally this'
+                    ' can be NNN:count where NNN is the DXCC number and'
+                    ' count is the number of contacts for this dxcc, after'
+                    ' number has been reached no highlighting is performed'
         , default = defaults ['highlight']
-        , action  = 'append'
+        , action  = Dict_Append
         )
     cmd.add_argument \
         ( "-e", "--encoding"
