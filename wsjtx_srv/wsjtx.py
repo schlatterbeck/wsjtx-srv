@@ -1119,7 +1119,7 @@ class Worked_Before (autosuper):
         'new_dxcc'
         """
         if band not in self.band_info:
-            return 'new_dxcc'
+            self.band_info [band] = WBF (band)
         r = self.band_info [band].lookup (call)
         if r:
             return 'wbf'
