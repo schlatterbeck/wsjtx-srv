@@ -28,6 +28,10 @@ before status.
 Changes
 -------
 
+Version 0.5: Add pyproject.toml
+
+- Installation with new setuptools again possible
+
 Version 0.4: Move to setuptools
 
 - Seems previous releases had versioning problems with pypi

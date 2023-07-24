@@ -9,3 +9,5 @@ upload_pypi
 *.pyo
 *.pcap
 *.swp
+wsjtx_srv.egg-info
+dist
