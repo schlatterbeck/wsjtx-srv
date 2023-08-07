@@ -28,22 +28,19 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # ****************************************************************************
 
+import sys
 from setuptools import setup
-try :
-    from wsjtx_srv.Version import VERSION
-except :
-    VERSION = None
+sys.path.insert (1, '.')
+from wsjtx_srv import __version__
 
-description = []
-with open ('README.rst') as f :
-    for line in f :
-        description.append (line)
+with open ('README.rst') as f:
+    description = f.read ()
 
 license     = 'BSD License'
 rq          = '>=3.7'
 setup \
     ( name             = "wsjtx_srv"
-    , version          = VERSION
+    , version          = __version__
     , description      = "Library implementation of WSJTX companion program"
     , long_description = ''.join (description)
     , long_description_content_type = 'text/x-rst'
