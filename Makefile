@@ -27,6 +27,7 @@ clean:
 	      README.html README.aux README.dvi README.log README.out \
 	      README.tex announce_pypi
 	rm -rf dist build upload upload_homepage ReleaseNotes.txt \
-            ${PACKAGE}/__pycache__
+            ${PACKAGE}/__pycache__ wsjtx_srv.egg-info __pycache__ \
+            ${CLEAN}
 
 include $(RELEASETOOLS)/Makefile-pyrelease
