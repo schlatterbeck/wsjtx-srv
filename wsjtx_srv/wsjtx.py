@@ -98,7 +98,7 @@ class Optional_Quint (Protocol_Element):
         if len (bytes) == 0:
             value = None
         else:
-            value = unpack (self.formats [length], bytes) [0]
+            value = unpack (cls.formats [length], bytes) [0]
         object = cls (value)
         object.size = length
         if value is None:
