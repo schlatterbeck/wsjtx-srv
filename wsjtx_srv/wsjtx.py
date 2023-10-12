@@ -748,48 +748,45 @@ class UDP_Connector:
     re_call   = re.compile \
         (r'(([A-Z])|([A-Z][A-Z0-9])|([0-9][A-Z]))[0-9][A-Z]{1,3}')
 
-    def is_locator (self, s):
+    @classmethod
+    def is_locator (cls, s):
         """ Check if s is a locator
-        >>> u = UDP_Connector (port = 4711, wbf = None)
-        >>> u.is_locator ('-2')
+        >>> UDP_Connector.is_locator ('-2')
         False
-        >>> u.is_locator ('JN88')
+        >>> UDP_Connector.is_locator ('JN88')
         True
-        >>> u.is_locator ('kk77')
+        >>> UDP_Connector.is_locator ('kk77')
         False
-        >>> u.socket.close ()
         """
-        return bool (self.re_loc.match (s))
+        return bool (cls.re_loc.match (s))
     # end def is_locator
 
-    def is_report (self, s):
+    @classmethod
+    def is_report (cls, s):
         """ Check if s is a report
-        >>> u = UDP_Connector (port = 4711, wbf = None)
-        >>> u.is_report ('-2')
+        >>> UDP_Connector.is_report ('-2')
         False
-        >>> u.is_report ('-02')
+        >>> UDP_Connector.is_report ('-02')
         True
-        >>> u.is_report ('+20')
+        >>> UDP_Connector.is_report ('+20')
         True
-        >>> u.is_report ('R+20')
+        >>> UDP_Connector.is_report ('R+20')
         True
-        >>> u.socket.close ()
         """
-        return bool (self.re_report.match (s))
+        return bool (cls.re_report.match (s))
     # end def is_locator
 
-    def is_stdcall (self, s):
+    @classmethod
+    def is_stdcall (cls, s):
         """ Check if s is a standard callsign
-        >>> u = UDP_Connector (port = 4711, wbf = None)
-        >>> u.is_stdcall ('D1X')
+        >>> UDP_Connector.is_stdcall ('D1X')
         True
-        >>> u.is_stdcall ('JN88')
+        >>> UDP_Connector.is_stdcall ('JN88')
         False
-        >>> u.is_stdcall ('OE3RSU')
+        >>> UDP_Connector.is_stdcall ('OE3RSU')
         True
-        >>> u.socket.close ()
         """
-        return bool (self.re_call.match (s))
+        return bool (cls.re_call.match (s))
     # end def is_stdcall
 
     def parse_message (self, tel):
