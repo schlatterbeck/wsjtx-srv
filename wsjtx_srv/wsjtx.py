@@ -99,7 +99,13 @@ class Optional_Quint(Protocol_Element):
     We encode a missing value as None
     """
 
-    formats = dict(((1, "!B"), (4, "!L"), (8, "!Q")))
+    formats = dict(
+        (
+            (1, "!B"),
+            (4, "!L"),
+            (8, "!Q"),
+        )
+    )
 
     @classmethod
     def deserialize(cls, bytes, length=1):
