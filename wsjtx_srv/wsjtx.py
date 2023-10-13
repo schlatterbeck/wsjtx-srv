@@ -265,7 +265,7 @@ qtime      = quint32
 qdatetime  = (QDateTime, 0)
 qcolor     = (QColor, 0)
 
-statusmsg = b'\xad\xbc\xcb\xda\x00\x00\x00\x02\x00\x00\x00\x01\x00\x00\x00\x14WSJT-X - TS590S-klbg\x00\x00\x00\x00\x00k\xf0\xd0\x00\x00\x00\x03FT8\x00\x00\x00\x06XAMPLE\x00\x00\x00\x02-2\x00\x00\x00\x03FT8\x00\x00\x01\x00\x00\x02\xcb\x00\x00\x04n\x00\x00\x00\x06OE3RSU\x00\x00\x00\x06JN88DG\x00\x00\x00\x04JO21\x00\xff\xff\xff\xff\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x0bTS590S-klbg\x00\x00\x00%XAMPLE OE3RSU 73                     '
+statusmsg = b'\xad\xbc\xcb\xda\x00\x00\x00\x02\x00\x00\x00\x01\x00\x00\x00\x14WSJT-X - TS590S-klbg\x00\x00\x00\x00\x00k\xf0\xd0\x00\x00\x00\x03FT8\x00\x00\x00\x06XAMPLE\x00\x00\x00\x02-2\x00\x00\x00\x03FT8\x00\x00\x01\x00\x00\x02\xcb\x00\x00\x04n\x00\x00\x00\x06OE3RSU\x00\x00\x00\x06JN88DG\x00\x00\x00\x04JO21\x00\xff\xff\xff\xff\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x0bTS590S-klbg\x00\x00\x00%XAMPLE OE3RSU 73               filler'
 clearmsg = b'\xad\xbc\xcb\xda\x00\x00\x00\x03\x00\x00\x00\x03\x00\x00\x00\x14WSJT-X - TS590S-klbg'
 
 class WSJTX_Telegram (autosuper):
@@ -278,7 +278,7 @@ class WSJTX_Telegram (autosuper):
         string. If 0 the Protocol_Element will know its serialization
         size.
     >>> WSJTX_Telegram.from_bytes (statusmsg)
-    Status dial_frq=7074000 mode=FT8 dx_call=XAMPLE report=-2 tx_mode=FT8 tx_enabled=0 xmitting=0 decoding=1 rx_df=715 tx_df=1134 de_call=OE3RSU de_grid=JN88DG dx_grid=JO21 tx_watchdog=0 sub_mode=None fast_mode=0 special_op=0 frq_tolerance=4294967295 t_r_period=4294967295 config_name=TS590S-klbg tx_message=XAMPLE OE3RSU 73
+    Status dial_frq=7074000 mode=FT8 dx_call=XAMPLE report=-2 tx_mode=FT8 tx_enabled=0 xmitting=0 decoding=1 rx_df=715 tx_df=1134 de_call=OE3RSU de_grid=JN88DG dx_grid=JO21 tx_watchdog=0 sub_mode=None fast_mode=0 special_op=0 frq_tolerance=4294967295 t_r_period=4294967295 config_name=TS590S-klbg tx_message=XAMPLE OE3RSU 73               filler
     >>> WSJTX_Telegram.from_bytes (clearmsg)
     Clear window=None
     """
@@ -970,6 +970,7 @@ class Worked_Before (autosuper):
                     if not rec.band:
                         continue
                     self.add_entry (rec)
+        self.highlight_dxcc = getattr (self.args, 'highlight_dxcc', {})
     # end def __init__
 
     def fuzzy_match_dxcc (self, call, use_dxcc = False):
@@ -1107,11 +1108,11 @@ class Worked_Before (autosuper):
         # Matched for *all* dxccs; not new dxcc on this (and any) band
         if r2:
             for dxcc in dxccs:
-                if dxcc in self.args.highlight_dxcc:
-                    if not self.args.highlight_dxcc [dxcc]:
+                if dxcc in self.highlight_dxcc:
+                    if not self.highlight_dxcc [dxcc]:
                         return 'highlight'
                     else:
-                        if self.args.highlight_dxcc [dxcc] > m:
+                        if self.highlight_dxcc [dxcc] > m:
                             return 'highlight'
             return self.lookup_new_call (call)
         r3 = 1
@@ -1349,7 +1350,7 @@ def main (get_wbf = get_wbf):
             print (tel)
 # end def main
 
-def wbf (argv = None):
+def wbf_cmd ():
     cmd = default_cmd ()
     cmd.add_argument \
         ( 'callsign'
@@ -1366,7 +1367,11 @@ def wbf (argv = None):
         , help    = 'If specified, use dxcc list for call lookup'
         , action  = 'store_true'
         )
+    return cmd
+# end def wbf_cmd
 
+def wbf (argv = None):
+    cmd  = wbf_cmd ()
     wbf  = get_wbf (cmd)
     args = wbf.args
     for callsign in args.callsign :
