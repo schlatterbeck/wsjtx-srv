@@ -695,7 +695,12 @@ class UDP_Connector:
     def handle_decode (self, tel):
         if tel.off_air or not tel.is_new:
             return
-        call  = self.parse_message (tel) or ''
+        call  = self.parse_message (tel.message)
+        if not tel.message:
+            print ("Empty message: %s" % tel)
+        elif call is None:
+            print ("Unknown message: %s" % tel.message)
+        call  = call or ''
         call  = call.lstrip ('<').rstrip ('>')
         if not call or call == '...':
             return
@@ -748,126 +753,93 @@ class UDP_Connector:
     re_call   = re.compile \
         (r'(([A-Z])|([A-Z][A-Z0-9])|([0-9][A-Z]))[0-9][A-Z]{1,3}')
 
-    def is_locator (self, s):
+    @classmethod
+    def is_locator (cls, s):
         """ Check if s is a locator
-        >>> u = UDP_Connector (port = 4711, wbf = None)
-        >>> u.is_locator ('-2')
+        >>> UDP_Connector.is_locator ('-2')
         False
-        >>> u.is_locator ('JN88')
+        >>> UDP_Connector.is_locator ('JN88')
         True
-        >>> u.is_locator ('kk77')
+        >>> UDP_Connector.is_locator ('kk77')
         False
-        >>> u.socket.close ()
         """
-        return bool (self.re_loc.match (s))
+        return bool (cls.re_loc.match (s))
     # end def is_locator
 
-    def is_report (self, s):
+    @classmethod
+    def is_report (cls, s):
         """ Check if s is a report
-        >>> u = UDP_Connector (port = 4711, wbf = None)
-        >>> u.is_report ('-2')
+        >>> UDP_Connector.is_report ('-2')
         False
-        >>> u.is_report ('-02')
+        >>> UDP_Connector.is_report ('-02')
         True
-        >>> u.is_report ('+20')
+        >>> UDP_Connector.is_report ('+20')
         True
-        >>> u.is_report ('R+20')
+        >>> UDP_Connector.is_report ('R+20')
         True
-        >>> u.socket.close ()
         """
-        return bool (self.re_report.match (s))
+        return bool (cls.re_report.match (s))
     # end def is_locator
 
-    def is_stdcall (self, s):
+    @classmethod
+    def is_stdcall (cls, s):
         """ Check if s is a standard callsign
-        >>> u = UDP_Connector (port = 4711, wbf = None)
-        >>> u.is_stdcall ('D1X')
+        >>> UDP_Connector.is_stdcall ('D1X')
         True
-        >>> u.is_stdcall ('JN88')
+        >>> UDP_Connector.is_stdcall ('JN88')
         False
-        >>> u.is_stdcall ('OE3RSU')
+        >>> UDP_Connector.is_stdcall ('OE3RSU')
         True
-        >>> u.socket.close ()
         """
-        return bool (self.re_call.match (s))
+        return bool (cls.re_call.match (s))
     # end def is_stdcall
 
-    def parse_message (self, tel):
+    @classmethod
+    def parse_message (cls, message):
         """ Parse the message property of a decode which includes the
             callsign(s). Note that we try to use only the second
             (sender) callsign.
-        >>> u = UDP_Connector (port = 4711, wbf = None)
-        >>> class t:
-        ...     message = None
-        >>> t.message = 'JA1XXX YL2XXX R-18'
-        >>> u.parse_message (t)
+        >>> UDP_Connector.parse_message ('JA1XXX YL2XXX R-18')
         'YL2XXX'
-        >>> t.message = 'UB9XXX OH1XXX KP20'
-        >>> u.parse_message (t)
+        >>> UDP_Connector.parse_message ('UB9XXX OH1XXX KP20')
         'OH1XXX'
-        >>> t.message = 'RZ6XXX DL9XXX -06'
-        >>> u.parse_message (t)
+        >>> UDP_Connector.parse_message ('RZ6XXX DL9XXX -06')
         'DL9XXX'
-        >>> t.message = 'IZ7XXX EW4XXX 73'
-        >>> u.parse_message (t)
+        >>> UDP_Connector.parse_message ('IZ7XXX EW4XXX 73')
         'EW4XXX'
-        >>> t.message = 'CQ II0XXXX'
-        >>> u.parse_message (t)
+        >>> UDP_Connector.parse_message ('CQ II0XXXX')
         'II0XXXX'
-        >>> t.message = 'CQ PD0XXX JO22'
-        >>> u.parse_message (t)
+        >>> UDP_Connector.parse_message ('CQ PD0XXX JO22')
         'PD0XXX'
-        >>> t.message = 'CQ NA PD0XXX JO22'
-        >>> u.parse_message (t)
+        >>> UDP_Connector.parse_message ('CQ NA PD0XXX JO22')
         'PD0XXX'
-        >>> t.message = 'OK1XXX F4IXXX -07'
-        >>> u.parse_message (t)
+        >>> UDP_Connector.parse_message ('OK1XXX F4IXXX -07')
         'F4IXXX'
-        >>> t.message = 'TM50XXX <F6XXX> RR73'
-        >>> u.parse_message (t)
+        >>> UDP_Connector.parse_message ('TM50XXX <F6XXX> RR73')
         '<F6XXX>'
-        >>> t.message = 'CQ E73XXX JN94     a1'
-        >>> u.parse_message (t)
+        >>> UDP_Connector.parse_message ('CQ E73XXX JN94     a1')
         'E73XXX'
-        >>> t.message = 'E73XXX 73'
-        >>> u.parse_message (t)
-        Unknown message: E73XXX 73
-        >>> t.message = 'CQ E73XXX OI32     ? a1'
-        >>> u.parse_message (t)
+        >>> UDP_Connector.parse_message ('E73XXX 73')
+        >>> UDP_Connector.parse_message ('CQ E73XXX OI32     ? a1')
         'E73XXX'
-        >>> t.message = 'CQ DX IK2XX'
-        >>> u.parse_message (t)
+        >>> UDP_Connector.parse_message ('CQ DX IK2XX')
         'IK2XX'
-        >>> t.message = 'EFHW 50W 73'
-        >>> u.parse_message (t)
-        Unknown message: EFHW 50W 73
-        >>> t.message = 'F1XXX D1X KN87'
-        >>> u.parse_message (t)
+        >>> UDP_Connector.parse_message ('EFHW 50W 73')
+        >>> UDP_Connector.parse_message ('F1XXX D1X KN87')
         'D1X'
-        >>> t.message = 'F1XXX D1X R+03'
-        >>> u.parse_message (t)
+        >>> UDP_Connector.parse_message ('F1XXX D1X R+03')
         'D1X'
-        >>> t.message = 'F1XXX D1X 73'
-        >>> u.parse_message (t)
+        >>> UDP_Connector.parse_message ('F1XXX D1X 73')
         'D1X'
-        >>> t.message = 'F1XXX D1X RR73'
-        >>> u.parse_message (t)
+        >>> UDP_Connector.parse_message ('F1XXX D1X RR73')
         'D1X'
-        >>> t.message = 'OZ1XXX 0'
-        >>> u.parse_message (t)
-        Unknown message: OZ1XXX 0
-        >>> t.message = '9H1XX EA8XX IL18'
-        >>> u.parse_message (t)
+        >>> UDP_Connector.parse_message ('OZ1XXX 0')
+        >>> UDP_Connector.parse_message ('9H1XX EA8XX IL18')
         'EA8XX'
-        >>> u.socket.close ()
         """
-        if not tel.message:
-            print ("Empty message: %s" % tel)
+        if not message or ';' in message:
             return None
-        if ';' in tel.message:
-            print ("Unknown message: %s" % tel.message)
-            return None
-        l = tel.message.split ()
+        l = message.split ()
         # Strip off marginal decode info
         if l [-1].startswith ('a'):
             l = l [:-1]
@@ -886,18 +858,16 @@ class UDP_Connector:
         if len (l) == 2 and len (l [1]) >= 3:
             return l [1]
         if len (l) < 2:
-            print ("Unknown message: %s" % tel.message)
             return None
         if len (l) == 4 and l [2] == 'R' and len (l [1]) >= 3:
             return l [1]
         if len (l) == 3 and len (l [1]) >= 3:
-            if len (l [1]) > 3 or self.is_stdcall (l [1]):
+            if len (l [1]) > 3 or cls.is_stdcall (l [1]):
                 return l [1]
-            if self.is_locator (l [2]):
+            if cls.is_locator (l [2]):
                 return l [1]
-            if self.is_report (l [2]):
+            if cls.is_report (l [2]):
                 return l [1]
-        print ("Unknown message: %s" % tel.message)
         return None
     # end def parse_message
 
