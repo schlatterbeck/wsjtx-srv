@@ -7,7 +7,8 @@ endif
 LASTRELEASE:=$(shell $(RELEASETOOLS)/lastrelease -n)
 WSJTX=wsjtx.py __init__.py
 VERSIONPY=wsjtx_srv/Version.py
-VERSION=$(VERSIONPY)
+VERSIONTXT=wsjtx_srv/VERSION
+VERSION=$(VERSIONPY) $(VERSIONTXT)
 README=README.rst
 SRC=Makefile setup.py $(WSJTX:%.py=wsjtx_srv/%.py) \
     MANIFEST.in $(README) README.html
@@ -23,7 +24,7 @@ all: $(VERSION)
 $(VERSION): $(SRC)
 
 clean:
-	rm -f MANIFEST wsjtx_srv/Version.py notes changes default.css    \
+	rm -f MANIFEST ${VERSION} notes changes default.css    \
 	      README.html README.aux README.dvi README.log README.out \
 	      README.tex announce_pypi
 	rm -rf dist build upload upload_homepage ReleaseNotes.txt \
