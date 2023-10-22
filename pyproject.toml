@@ -62,4 +62,4 @@ wsjtx-srv = 'wsjtx_srv.wsjtx:main'
 wbf       = 'wsjtx_srv.wsjtx:wbf'
 
 [tool.setuptools.dynamic]
-version = {file = "wsjtx_srv/VERSION"}
+version = {file = "VERSION"}

@@ -11,3 +11,4 @@ upload_pypi
 *.swp
 wsjtx_srv.egg-info
 dist
+VERSION

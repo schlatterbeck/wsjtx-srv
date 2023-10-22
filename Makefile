@@ -7,7 +7,7 @@ endif
 LASTRELEASE:=$(shell $(RELEASETOOLS)/lastrelease -n)
 WSJTX=wsjtx.py __init__.py
 VERSIONPY=wsjtx_srv/Version.py
-VERSIONTXT=wsjtx_srv/VERSION
+VERSIONTXT=VERSION
 VERSION=$(VERSIONPY) $(VERSIONTXT)
 README=README.rst
 SRC=Makefile setup.py $(WSJTX:%.py=wsjtx_srv/%.py) \
