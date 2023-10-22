@@ -749,7 +749,7 @@ class UDP_Connector:
 
     # Some regexes for matching
     re_report = re.compile (r'[R]?[-+][0-9]{2}')
-    re_loc    = re.compile (r'[A-Z]{2}[0-9]{2}')
+    re_loc    = re.compile (r'[A-R]{2}[0-9]{2}([A-Xa-x]{2}([0-9]{2})?)?')
     re_call   = re.compile \
         (r'(([A-Z])|([A-Z][A-Z0-9])|([0-9][A-Z]))[0-9][A-Z]{1,3}')
 
@@ -760,10 +760,20 @@ class UDP_Connector:
         False
         >>> UDP_Connector.is_locator ('JN88')
         True
+        >>> UDP_Connector.is_locator ('JN88aq')
+        True
+        >>> UDP_Connector.is_locator ('JN88aq01')
+        True
         >>> UDP_Connector.is_locator ('kk77')
         False
+        >>> UDP_Connector.is_locator ('AA00AAA')
+        False
+        >>> UDP_Connector.is_locator ('ZZ00')
+        False
+        >>> UDP_Connector.is_locator ('QT01')
+        False
         """
-        return bool (cls.re_loc.match (s))
+        return bool (cls.re_loc.fullmatch (s))
     # end def is_locator
 
     @classmethod
@@ -777,8 +787,10 @@ class UDP_Connector:
         True
         >>> UDP_Connector.is_report ('R+20')
         True
+        >>> UDP_Connector.is_report ('R+20foo')
+        False
         """
-        return bool (cls.re_report.match (s))
+        return bool (cls.re_report.fullmatch (s))
     # end def is_locator
 
     @classmethod
@@ -791,7 +803,7 @@ class UDP_Connector:
         >>> UDP_Connector.is_stdcall ('OE3RSU')
         True
         """
-        return bool (cls.re_call.match (s))
+        return bool (cls.re_call.fullmatch (s))
     # end def is_stdcall
 
     @classmethod
