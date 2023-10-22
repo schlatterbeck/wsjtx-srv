@@ -28,12 +28,16 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # ****************************************************************************
 
-import sys
+import os.path
 from setuptools import setup
-sys.path.insert (1, '.')
-from wsjtx_srv import __version__
 
-with open ('README.rst') as f:
+if os.path.exists ("VERSION"):
+    with open ("VERSION", 'r', encoding="utf8") as f:
+        __version__ = f.read ().strip ()
+else:
+    __version__ = '0+unknown'
+
+with open ('README.rst', encoding="utf8") as f:
     description = f.read ()
 
 license     = 'BSD License'
