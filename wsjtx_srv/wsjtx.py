@@ -749,7 +749,7 @@ class UDP_Connector:
 
     # Some regexes for matching
     re_report = re.compile (r'[R]?[-+][0-9]{2}')
-    re_loc    = re.compile (r'[A-R]{2}[0-9]{2}([A-Za-z]{2}([0-9]{2})?)?')
+    re_loc    = re.compile (r'[A-R]{2}[0-9]{2}([A-Xa-x]{2}([0-9]{2})?)?')
     re_call   = re.compile \
         (r'(([A-Z])|([A-Z][A-Z0-9])|([0-9][A-Z]))[0-9][A-Z]{1,3}')
 
