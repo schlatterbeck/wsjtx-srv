@@ -63,3 +63,6 @@ wbf       = 'wsjtx_srv.wsjtx:wbf'
 
 [tool.setuptools.dynamic]
 version = {file = "VERSION"}
+
+[tool.pytest.ini_options]
+addopts = '--doctest-modules'
