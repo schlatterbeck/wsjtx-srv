@@ -1,10 +1,10 @@
 # To use this Makefile, get a copy of my SF Release Tools
 # git clone git://git.code.sf.net/p/sfreleasetools/code sfreleasetools
-# And point the environment variable RELEASETOOLS to the checkout
-ifeq (,${RELEASETOOLS})
-    RELEASETOOLS=../releasetools
+# And point the environment variable RELEASETOOL to the checkout
+ifeq (,${RELEASETOOL})
+    RELEASETOOL=../releasetool
 endif
-LASTRELEASE:=$(shell $(RELEASETOOLS)/lastrelease -n)
+LASTRELEASE:=$(shell $(RELEASETOOL)/lastrelease -n)
 WSJTX=wsjtx.py __init__.py
 VERSIONPY=wsjtx_srv/Version.py
 VERSIONTXT=VERSION
@@ -31,4 +31,4 @@ clean:
             ${PACKAGE}/__pycache__ wsjtx_srv.egg-info __pycache__ \
             ${CLEAN}
 
-include $(RELEASETOOLS)/Makefile-pyrelease
+include $(RELEASETOOL)/Makefile-pyrelease
