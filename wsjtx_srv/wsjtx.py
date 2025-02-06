@@ -1126,6 +1126,8 @@ class Worked_Before (autosuper):
                     else:
                         if self.highlight_dxcc [dxcc] > m:
                             return 'highlight'
+                elif self.args.min_highlight and m < self.args.min_highlight:
+                    return 'highlight'
             return self.lookup_new_call (call)
         r3 = 1
         for dxcc in dxccs:
@@ -1263,7 +1265,6 @@ def default_cmd (defaults = None):
 
     class Dict_Append (Argparse_Action):
         def __call__ (self, parser, namespace, values, option_string = None):
-            import pdb; pdb.set_trace ()
             dst = getattr (namespace, self.dest)
             try:
                 k, v = values.split (':')
@@ -1298,6 +1299,13 @@ def default_cmd (defaults = None):
         ( "-l", "--locator"
         , help    = 'Locator of user of wsjtx, default=%(default)s'
         , default = defaults ['loc']
+        )
+    cmd.add_argument \
+        ( "--min-highlight"
+        , help    = 'Number of contacts when highlighting stops,'
+                    ' set to 0 to turn off, default=%(default)s'
+        , default = 5
+        , type    = int
         )
     cmd.add_argument \
         ( "-p", "--password"
