@@ -1,4 +1,4 @@
-# Copyright (C) 2021-23 Dr. Ralf Schlatterbeck Open Source Consulting.
+# Copyright (C) 2021-25 Dr. Ralf Schlatterbeck Open Source Consulting.
 # Reichergasse 131, A-3411 Weidling.
 # Web: http://www.runtux.com Email: office@runtux.com
 # All rights reserved
@@ -37,12 +37,11 @@ dynamic         = ["version"]
 authors         = [{ name="Ralf Schlatterbeck", email="rsc@runtux.com" }, ]
 description     = "Library implementation of WSJTX companion program"
 readme          = "README.rst"
-license         = {text = "BSD License"}
+license         = "BSD-2-Clause"
 requires-python = '>=3.7'
 dependencies    = ['rsclib', 'hamradio']
 classifiers     = [
           'Development Status :: 5 - Production/Stable'
-        , 'License :: OSI Approved :: BSD License'
         , 'Operating System :: OS Independent'
         , 'Topic :: Communications :: Ham Radio'
         , 'Intended Audience :: Developers'
