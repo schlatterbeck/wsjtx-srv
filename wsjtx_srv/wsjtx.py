@@ -848,9 +848,19 @@ class UDP_Connector:
         >>> UDP_Connector.parse_message ('OZ1XXX 0')
         >>> UDP_Connector.parse_message ('9H1XX EA8XX IL18')
         'EA8XX'
+	>>> wsjtx.UDP_Connector.parse_message ('WA4YA RR73; KC0IYT <W1AW> -32')
+	'<W1AW>'
         """
-        if not message or ';' in message:
+        if not message:
             return None
+        if ';' in message:
+            if 'RR73;' in message:
+                # compound message.  Strip the '<call> RR73;', use the rest
+                i = message.index(';')
+                new = message[i+2:]
+                message = new
+            else: 
+                return None
         l = message.split ()
         # Strip off marginal decode info
         if l [-1].startswith ('a'):
