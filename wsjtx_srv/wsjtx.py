@@ -848,7 +848,7 @@ class UDP_Connector:
         >>> UDP_Connector.parse_message ('OZ1XXX 0')
         >>> UDP_Connector.parse_message ('9H1XX EA8XX IL18')
         'EA8XX'
-	>>> wsjtx.UDP_Connector.parse_message ('WA4YA RR73; KC0IYT <W1AW> -32')
+	>>> UDP_Connector.parse_message ('WA4YA RR73; KC0IYT <W1AW> -32')
 	'<W1AW>'
         """
         if not message:
@@ -856,9 +856,7 @@ class UDP_Connector:
         if ';' in message:
             if 'RR73;' in message:
                 # compound message.  Strip the '<call> RR73;', use the rest
-                i = message.index(';')
-                new = message[i+2:]
-                message = new
+                message = message.split (';', 1) [1].lstrip ()
             else: 
                 return None
         l = message.split ()
@@ -1087,7 +1085,10 @@ class Worked_Before (autosuper):
             and the check of a new call (on band or globally)
             The following test looks up RK0 which matches both, European
             Russia and Asiatic Russia.
-        >>> w = Worked_Before ()
+        >>> args = get_wbf (None, {'call': 'OE3RSU'}, []).args
+        >>> args.highlight_dxcc = {}
+        >>> args.min_highlight = 0
+        >>> w = Worked_Before (args = args)
         >>> w.band_info ['40m'] = WBF ('40m')
         >>> w.band_info ['17m'] = WBF ('40m')
         >>> w.band_info ['10m'] = WBF ('40m')
@@ -1172,7 +1173,10 @@ class Worked_Before (autosuper):
             and the check of a new call (on band or globally)
             The following test looks up RK0 which matches both, European
             Russia and Asiatic Russia.
-        >>> w = Worked_Before ()
+        >>> args = get_wbf (None, {'call': 'OE3RSU'}, []).args
+        >>> args.highlight_dxcc = {}
+        >>> args.min_highlight = 0
+        >>> w = Worked_Before (args = args)
         >>> w.band_info ['40m'] = WBF ('40m')
         >>> w.dxcc_info ['40m'] = WBF ('40m')
         >>> w.dxcc_info ['ALL'] = WBF ('ALL')
@@ -1288,7 +1292,7 @@ def default_cmd (defaults = None):
     cmd.add_argument \
         ( '-a', '--adif'
         , help    = 'ADIF file to parse, default=%(default)s'
-        , default = defaults ['adif_path']
+        , default = defaults.get ('adif_path')
         )
     cmd.add_argument \
         ( "-d", "--highlight-dxcc"
@@ -1297,7 +1301,7 @@ def default_cmd (defaults = None):
                     ' can be NNN:count where NNN is the DXCC number and'
                     ' count is the number of contacts for this dxcc, after'
                     ' number has been reached no highlighting is performed'
-        , default = defaults ['highlight']
+        , default = defaults.get ('highlight')
         , action  = Dict_Append
         )
     cmd.add_argument \
@@ -1308,7 +1312,7 @@ def default_cmd (defaults = None):
     cmd.add_argument \
         ( "-l", "--locator"
         , help    = 'Locator of user of wsjtx, default=%(default)s'
-        , default = defaults ['loc']
+        , default = defaults.get ('loc')
         )
     cmd.add_argument \
         ( "--min-highlight"
@@ -1324,17 +1328,20 @@ def default_cmd (defaults = None):
     cmd.add_argument \
         ( "-U", "--dburl"
         , help    = 'URL of qso tracker, default=%(default)s'
-        , default = defaults ['dburl']
+        , default = defaults.get ('dburl')
         )
     cmd.add_argument \
         ( "-u", "--dbuser"
         , help    = 'User of qso tracker, default=%(default)s'
-        , default = defaults ['user']
+        , default = defaults.get ('user')
         )
     return cmd
 # end def default_cmd
 
-def get_wbf (cmd = None, defaults = None):
+def get_wbf (cmd = None, defaults = None, argv = None):
+    """ Get worked before
+    >>> args = get_wbf (None, {'call': 'OE3RSU'}, []).args
+    """
     if defaults is None:
         defaults = get_defaults ()
     if cmd is None:
@@ -1342,7 +1349,7 @@ def get_wbf (cmd = None, defaults = None):
         cmd.add_argument \
             ( "-c", "--callsign"
             , help    = 'Callsign of user of wsjtx, default=%(default)s'
-            , default = defaults ['call']
+            , default = defaults.get ('call')
             )
         cmd.add_argument \
             ( "-L", "--set-locator-msg"
@@ -1351,7 +1358,7 @@ def get_wbf (cmd = None, defaults = None):
                         'message'
             , action  = 'store_true'
             )
-    args = cmd.parse_args ()
+    args = cmd.parse_args (argv)
     if args.dburl and args.dbuser:
         wbf = QSO_Database_Worked_Before \
             ( url      = args.dburl
@@ -1402,7 +1409,7 @@ def wbf_cmd ():
 
 def wbf (argv = None):
     cmd  = wbf_cmd ()
-    wbf  = get_wbf (cmd)
+    wbf  = get_wbf (cmd, argv = argv)
     args = wbf.args
     for callsign in args.callsign :
         print (callsign, end = ': ')
